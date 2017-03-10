@@ -1,0 +1,14 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "node_modules": true,
+        "dist": true,
+        "es5": true,
+        "es6": true,
+        "declarations": true
+    },
+    "typescript.tsdk": "./node_modules/typescript/lib"
+}

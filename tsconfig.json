@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "alwaysStrict": true,
+        "declaration": true,
+        "declarationDir": "declarations",
+        "forceConsistentCasingInFileNames": true,
+        "lib": [
+            "es2015"
+        ],
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "newLine": "LF",
+        "noEmitOnError": true,
+        "noImplicitAny": true,
+        "outDir": "es6",
+        "sourceMap": true,
+        "strictNullChecks": true,
+        "stripInternal": true,
+        "target": "es2015"
+    },
+    "exclude": [
+        "dist",
+        "declarations",
+        "es5",
+        "es6",
+        "node_modules"
+    ]
+}
