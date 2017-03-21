@@ -13,12 +13,12 @@ Designed for use with TypeScript, but can be extended for other languages.
 ## Usage as a module
 
 ```bash
-npm install mesh-raml-generator
+npm install mesh-model-generator
 ```
 
 ```TypeScript
 import { readFileSync, writeFileSync } from 'fs';
-import { parseAndGenerate } from 'mesh-raml-generator';
+import { parseAndGenerate } from 'mesh-model-generator';
 
 const inputFile = readFileSync('./my-api.raml', 'utf-8');
 parseAndGenerate(inputFile)
