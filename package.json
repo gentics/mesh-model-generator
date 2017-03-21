@@ -21,8 +21,11 @@
   "homepage": "https://github.com/gentics/mesh-model-generator#readme",
   "main": "es5/index.js",
   "esnext:main": "es6/index.js",
-  "e2015": "es6/index.js",
+  "es2015": "es6/index.js",
   "typings": "declarations/index.d.ts",
+  "bin": {
+    "mesh-model-generator": "./es5/cli.js"
+  },
   "scripts": {
     "build": "gulp build",
     "build-tsc": "tsc -p tsconfig.es5.json && tsc -p tsconfig.es6.json",
@@ -41,6 +44,7 @@
     "@types/js-yaml": "^3.5.29",
     "@types/merge2": "^0.3.29",
     "@types/mocha": "^2.2.33",
+    "@types/node": "^6.0.45",
     "@types/orchestrator": "0.0.30",
     "@types/source-map-support": "^0.2.28",
     "@types/vinyl": "^2.0.0",
@@ -58,7 +62,6 @@
     "typescript": "^2.2.1"
   },
   "dependencies": {
-    "editorconfig": "^0.13.2",
     "js-yaml": "^3.8.2"
   }
 }
