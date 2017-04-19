@@ -122,6 +122,84 @@ describe('MeshRamlParser', () => {
             });
         });
 
+        it('collapses leading slashes', async () => {
+            const exampleRaml = {
+                '/': {
+                    '/{project}': {
+                        get: {
+                            description: 'description of projects endpoint',
+                            responses: {
+                                200: {
+                                    body: {
+                                        'application/json': {
+                                            schema: JSON.stringify({
+                                                type: 'object',
+                                                id: 'urn:jsonschema:com:gentics:mesh:core:rest:project:ProjectResponse',
+                                                properties: {
+                                                    someProp: {
+                                                        type: 'string',
+                                                        required: true,
+                                                        description: 'Description of someProp'
+                                                    }
+                                                }
+                                            }),
+                                            example: JSON.stringify({
+                                                someProp: 'abc'
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const result = await parser.findModelsAndEndpoints(exampleRaml);
+            expect(result.endpoints).to.have.lengthOf(1);
+            expect(result.endpoints[0].url).to.equal('/{project}');
+            expect(result.endpoints[0].url).not.to.equal('//{project}');
+        });
+
+        it('removes trailing slashes', async () => {
+            const exampleRaml = {
+                '/{project}': {
+                    '/': {
+                        get: {
+                            description: 'description of projects endpoint',
+                            responses: {
+                                200: {
+                                    body: {
+                                        'application/json': {
+                                            schema: JSON.stringify({
+                                                type: 'object',
+                                                id: 'urn:jsonschema:com:gentics:mesh:core:rest:project:ProjectResponse',
+                                                properties: {
+                                                    someProp: {
+                                                        type: 'string',
+                                                        required: true,
+                                                        description: 'Description of someProp'
+                                                    }
+                                                }
+                                            }),
+                                            example: JSON.stringify({
+                                                someProp: 'abc'
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const result = await parser.findModelsAndEndpoints(exampleRaml);
+            expect(result.endpoints).to.have.lengthOf(1);
+            expect(result.endpoints[0].url).to.equal('/{project}');
+            expect(result.endpoints[0].url).not.to.equal('/{project}/');
+        });
+
     });
 
     describe('traverseRequest', () => {

@@ -59,7 +59,7 @@ export class MeshRamlParser {
 
                 for (let methodName of methods) {
                     const requestSchemaRaml = childPath[methodName];
-                    const url = pathName + (childPathName === '/' ? '' : childPathName);
+                    const url = (pathName + (childPathName === '/' ? '' : childPathName)).replace(/\/+/, '/');
                     const parsedRequest = await this.traverseRequest(requestSchemaRaml, methodName, url, models);
                     endpoints.push(parsedRequest);
                 }
