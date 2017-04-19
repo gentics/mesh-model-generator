@@ -239,6 +239,39 @@ describe('TypescriptModelRenderer', () => {
 
             `);
         });
+
+        it('renders request URLs for models with no description when set in options', async () => {
+            personModel.description = undefined;
+            const models = { [personModel.id]: personModel };
+
+            renderer.options.emitRequestExamples = false;
+            renderer.options.emitRequestURLs = true;
+            renderer.options.emitResponseExamples = false;
+
+            const result = await renderer.renderAll({
+                baseUri: '',
+                endpoints,
+                models,
+                version: '0.8'
+            });
+
+            expect(result).to.equal(unindent `
+                /**
+                 * Returned for: GET person/{uuid}
+                 */
+                export interface PersonModel {
+                    /** Age of the person in floating-point years (like 38.5) */
+                    age: number;
+                    /** The first name of the person */
+                    firstName: string;
+                    /** The last name of the person */
+                    lastName: string;
+                    uuid: string;
+                }
+
+            `);
+        });
+
     });
 
     describe('generateJsDoc()', () => {
@@ -415,6 +448,88 @@ describe('TypescriptModelRenderer', () => {
                 " *     fruit: 'apple',",
                 ' *     color: [255, 0, 0]',
                 ' * }',
+                ' */'
+            ]);
+        });
+
+        it('outputs a single matching response wihtout a description', () => {
+            const endpoint: Endpoint = {
+                description: 'Description of endpoint',
+                method: 'GET',
+                url: '/persons',
+                responses: {
+                    200: {
+                        description: 'Description of 200 response'
+                    }
+                }
+            };
+
+            renderer.options.emitRequestExamples = false;
+            renderer.options.emitRequestURLs = true;
+            renderer.options.emitResponseExamples = false;
+
+            const jsdoc = renderer.generateJsDoc({
+                 responses: [
+                    {
+                        endpoint,
+                        response: endpoint.responses[200],
+                        statusCode: 200
+                    }
+                ]
+            });
+            expect(jsdoc).to.deep.equal([
+                '/**',
+                ' * Returned for: GET /persons',
+                ' */'
+            ]);
+        });
+
+        it('outputs multiple matching responses without a description', () => {
+            const endpoint1: Endpoint = {
+                description: 'Description of endpoint 1',
+                method: 'GET',
+                url: '/persons',
+                responses: {
+                    200: {
+                        description: 'Description of 200 response 1'
+                    }
+                }
+            };
+
+            const endpoint2: Endpoint = {
+                description: 'Description of endpoint 2',
+                method: 'POST',
+                url: '/persons',
+                responses: {
+                    201: {
+                        description: 'Description of 201 response 2'
+                    }
+                }
+            };
+
+            renderer.options.emitRequestExamples = false;
+            renderer.options.emitRequestURLs = true;
+            renderer.options.emitResponseExamples = false;
+
+            const jsdoc = renderer.generateJsDoc({
+                responses: [
+                    {
+                        endpoint: endpoint1,
+                        response: endpoint1.responses[200],
+                        statusCode: 200
+                    },
+                    {
+                        endpoint: endpoint2,
+                        response: endpoint2.responses[201],
+                        statusCode: 201
+                    }
+                ]
+            });
+            expect(jsdoc).to.deep.equal([
+                '/**',
+                ' * Returned for:',
+                ' *     GET /persons',
+                ' *     POST /persons',
                 ' */'
             ]);
         });

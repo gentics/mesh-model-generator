@@ -50,7 +50,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
     }
 
     /**
-     * Generate the TypeScript interfaces for a 
+     * Generate the TypeScript interfaces for a
      */
     protected async generateInterfaces(raml: ParsedMeshRAML, filter: ModelFilter): Promise<string> {
         const { models, endpoints } = raml;
@@ -79,7 +79,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
                         .filter(responseExample => !!responseExample)[0]
                     example = responseExample ? await this.formatResponseExample(responseExample) : '';
                 }
-                
+
                 const responses = this.options.emitRequestURLs
                     ? this.endpointsWithResponseType(model, endpoints)
                     : [];
@@ -156,7 +156,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
             responses = undefined;
         }
 
-        if (!description && !example) {
+        if (!description && !example && !responses) {
             return [];
         }
 
