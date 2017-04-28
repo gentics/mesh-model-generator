@@ -257,7 +257,7 @@ describe('TypescriptModelRenderer', () => {
 
             expect(result).to.equal(unindent `
                 /**
-                 * Returned for: GET person/{uuid}
+                 * Returned for ${'`'}GET person/{uuid}${'`'}
                  */
                 export interface PersonModel {
                     /** Age of the person in floating-point years (like 38.5) */
@@ -384,7 +384,7 @@ describe('TypescriptModelRenderer', () => {
                 '/**',
                 ' * Some description',
                 ' *',
-                ' * Returned for: GET /persons',
+                ' * Returned for `GET /persons`',
                 ' */'
             ]);
         });
@@ -440,8 +440,8 @@ describe('TypescriptModelRenderer', () => {
                 ' * Some description',
                 ' *',
                 ' * Returned for:',
-                ' *     GET /persons',
-                ' *     POST /persons',
+                ' *   - `GET /persons`',
+                ' *   - `POST /persons`',
                 ' *',
                 ' * @example',
                 ' * {',
@@ -452,7 +452,7 @@ describe('TypescriptModelRenderer', () => {
             ]);
         });
 
-        it('outputs a single matching response wihtout a description', () => {
+        it('outputs a single matching response without a description', () => {
             const endpoint: Endpoint = {
                 description: 'Description of endpoint',
                 method: 'GET',
@@ -479,7 +479,7 @@ describe('TypescriptModelRenderer', () => {
             });
             expect(jsdoc).to.deep.equal([
                 '/**',
-                ' * Returned for: GET /persons',
+                ' * Returned for `GET /persons`',
                 ' */'
             ]);
         });
@@ -528,8 +528,8 @@ describe('TypescriptModelRenderer', () => {
             expect(jsdoc).to.deep.equal([
                 '/**',
                 ' * Returned for:',
-                ' *     GET /persons',
-                ' *     POST /persons',
+                ' *   - `GET /persons`',
+                ' *   - `POST /persons`',
                 ' */'
             ]);
         });
@@ -568,7 +568,7 @@ describe('TypescriptModelRenderer', () => {
                 '/**',
                 ' * Some description',
                 ' *',
-                ' * Returned for: GET /persons',
+                ' * Returned for `GET /persons`',
                 ' *',
                 ' * @example',
                 ' * {',
@@ -576,6 +576,46 @@ describe('TypescriptModelRenderer', () => {
                 ' *     color: [255, 0, 0]',
                 ' * }',
                 ' */'
+            ]);
+        });
+
+    });
+
+    describe('sortEndpointsForJsDoc()', () => {
+
+        function toStringArray(responseList: CombinedResponseInfo[]): string[] {
+            return responseList.map(res => res.endpoint.method + ' ' + res.endpoint.url);
+        }
+
+        it('sorts the passed endpoints by (method -> url)', () => {
+            const input = [
+                { endpoint: { method: 'POST', url: 'users/online' } } as CombinedResponseInfo,
+                { endpoint: { method: 'GET', url: 'users/online' } } as CombinedResponseInfo,
+                { endpoint: { method: 'DELETE', url: 'projects/{projectUuid}' } } as CombinedResponseInfo,
+                { endpoint: { method: 'GET', url: 'users/offline' } } as CombinedResponseInfo,
+                { endpoint: { method: 'GET', url: 'projects/{projectUuid}' } } as CombinedResponseInfo
+            ];
+            const sorted = renderer.sortEndpointsForJsDoc(input);
+            expect(toStringArray(sorted)).to.deep.equal([
+                'GET projects/{projectUuid}',
+                'GET users/offline',
+                'GET users/online',
+                'POST users/online',
+                'DELETE projects/{projectUuid}'
+            ]);
+        });
+
+        it('only returns the same url with the same method once', () => {
+            const input = [
+                { endpoint: { method: 'GET', url: 'users/online' }, statusCode: 200 } as CombinedResponseInfo,
+                { endpoint: { method: 'POST', url: 'users' }, statusCode: 201 } as CombinedResponseInfo,
+                { endpoint: { method: 'POST', url: 'users' }, statusCode: 202 } as CombinedResponseInfo,
+                { endpoint: { method: 'GET', url: 'users/online' }, statusCode: 204 } as CombinedResponseInfo
+            ];
+            const sorted = renderer.sortEndpointsForJsDoc(input);
+            expect(toStringArray(sorted)).to.deep.equal([
+                'GET users/online',
+                'POST users'
             ]);
         });
 
@@ -607,5 +647,9 @@ class TypescriptModelRendererExposeProtectedProperties extends TypescriptModelRe
                 responses?: CombinedResponseInfo[]
             }) {
         return super.generateJsDoc({ description, example, responses });
+    }
+
+    sortEndpointsForJsDoc(endpoints: CombinedResponseInfo[]): CombinedResponseInfo[] {
+        return super.sortEndpointsForJsDoc(endpoints);
     }
 }

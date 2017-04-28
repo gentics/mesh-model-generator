@@ -81,7 +81,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
                 }
 
                 const responses = this.options.emitRequestURLs
-                    ? this.endpointsWithResponseType(model, endpoints)
+                    ? this.sortEndpointsForJsDoc(this.endpointsWithResponseType(model, endpoints))
                     : [];
 
                 const interfaceName = this.generateModelName(modelRef);
@@ -127,11 +127,25 @@ export class TypescriptModelRenderer implements ModelRenderer {
 
     /**
      * Generate the output interface name of a model reference.
+     *
      * @param {string} schemaRef The full name of the referenced model,
      *     e.g. "urn:jsonschema:com:gentics:mesh:core:rest:user:UserCreateRequest"
      */
     protected generateModelName(schemaRef: string): string {
         const shortName = schemaRef.replace(/^urn:jsonschema:com:([a-z]+:)*/, '');
+        return this.formatModelName(shortName, schemaRef);
+    }
+
+    /**
+     * Format an interface name with prefix and suffix.
+     * Can be overwritten by the consuming code to add conditional logic.
+     *
+     * @param {string} shortName The short name of the referenced model,
+     *     e.g. "UserCreateRequest"
+     * @param {string} fullSchemaRef The full name of the referenced model,
+     *     e.g. "urn:jsonschema:com:gentics:mesh:core:rest:user:UserCreateRequest"
+     */
+    protected formatModelName(shortName: string, fullSchemaRef: string): string {
         return this.options.interfacePrefix + shortName + this.options.interfaceSuffix;
     }
 
@@ -178,11 +192,30 @@ export class TypescriptModelRenderer implements ModelRenderer {
         }
         if (responses) {
             if (responses.length === 1) {
-                lines.push(`Returned for: ${responses[0].endpoint.method} ${responses[0].endpoint.url}`);
+                // Output:
+                // Returned for: `GET endpoint/url`
+                lines.push([
+                    'Returned for `',
+                    responses[0].endpoint.method,
+                    ' ',
+                    responses[0].endpoint.url,
+                    '`'
+                ].join(''));
             } else {
+                // Output:
+                // Returned for:
+                //   - `GET endpoint-1/url`
+                //   - `POST endpoint-2/url`
                 lines.push(`Returned for:`);
                 for (let res of responses) {
-                    lines.push(this.options.indentation + res.endpoint.method + ' ' + res.endpoint.url);
+                    lines.push([
+                        this.options.indentation.replace(/  $/, ''),
+                        '- `',
+                        res.endpoint.method,
+                        ' ',
+                        res.endpoint.url,
+                        '`'
+                    ].join(''));
                 }
             }
         }
@@ -201,6 +234,34 @@ export class TypescriptModelRenderer implements ModelRenderer {
             ...lines.map(line => line ? ' * ' + line : ' *'),
             ' */'
         ];
+    }
+
+    /**
+     * Sort a list of responses by (method -> url).
+     * Can be overwritten by the consuming code to add additional logic.
+     */
+    protected sortEndpointsForJsDoc(list: CombinedResponseInfo[], methodOrder = ['GET', 'POST', 'PUT', 'UPDATE', 'DELETE']): CombinedResponseInfo[] {
+        list.sort((a, b) => {
+            const orderIndexA = methodOrder.indexOf(a.endpoint.method);
+            const orderIndexB = methodOrder.indexOf(b.endpoint.method);
+            if (orderIndexA !== orderIndexB) {
+                return orderIndexA - orderIndexB;
+            } else if (a.endpoint.url < b.endpoint.url) {
+                return -1;
+            } else {
+                return 1;
+            }
+        });
+
+        // Group all endpoints that have the same request URL and method
+        const unique: CombinedResponseInfo[] = [];
+        for (let response of list) {
+            if (unique.every(r => r.endpoint.url !== response.endpoint.url
+                               || r.endpoint.method !== response.endpoint.method)) {
+                unique.push(response);
+            }
+        }
+        return unique;
     }
 
     protected async renderTypescriptProperties(props: { [name: string]: PropertyDefinition }): Promise<string[]> {
