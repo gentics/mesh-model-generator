@@ -3,6 +3,7 @@ import { ParsedMeshRAML, ModelMap, Endpoint, ObjectProperty, PropertyDefinition,
 import { unindent } from '../utils/unindent';
 import { formatAsObjectKey, formatValueAsPOJO } from '../utils/format-as-pojo';
 import { unhandledCase } from '../utils/unhandled-case';
+import { wordWrap } from '../utils/word-wrap';
 
 export const defaultOptions = {
     addEndpointList: false,
@@ -15,6 +16,7 @@ export const defaultOptions = {
     indentation: '    ',
     interfacePrefix: '',
     interfaceSuffix: '',
+    maxLineLength: 100,
     methodSortOrder: ['GET', 'POST', 'PUT', 'UPDATE', 'DELETE'] as Array<'GET' | 'POST' | 'PUT' | 'UPDATE' | 'DELETE'>,
     sortInterfaces: true,
     sortKeys: true
@@ -397,9 +399,8 @@ export class TypescriptModelRenderer implements ModelRenderer {
             description = description.replace(/(\. ?)|(\n)|$/, ` (default: ${defaultText})$1$2`);
         }
 
-        const descriptionLines = description
-            ? description.replace(/\. (?!\()/g, '.\n').split('\n')
-            : [];
+        const maxLineLength = this.options.maxLineLength - 4 * this.options.indentation.length - 3;
+        const descriptionLines = description ? wordWrap(description, maxLineLength) : [];
 
         if (!example && description && descriptionLines.length === 1 && !responses) {
             return ['/** ' + description + ' */'];
