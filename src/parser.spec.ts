@@ -213,6 +213,67 @@ describe('MeshRamlParser', () => {
             expect(result.endpoints[0].url).not.to.equal('/{project}/');
         });
 
+        it('combines uriParameters of parent and child route', async () => {
+            const exampleRaml = {
+                '/': {
+                    '/{project}': {
+                        uriParameters: {
+                            project: {
+                                description: 'Description of project',
+                                type: 'string',
+                                required: true
+                            }
+                        },
+                        get: {
+                            responses: {
+                                200: {
+                                    body: {
+                                        'application/json': {
+                                            schema: JSON.stringify({
+                                                type: 'object',
+                                                id: 'urn:jsonschema:com:gentics:mesh:core:rest:project:ProjectResponse',
+                                                properties: { }
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    '/{project}/nodes': {
+                        get: {
+                            responses: {
+                                200: {
+                                    body: {
+                                        'application/json': {
+                                            schema: JSON.stringify({
+                                                type: 'object',
+                                                id: 'urn:jsonschema:com:gentics:mesh:core:rest:project:NodeListResponse',
+                                                properties: { }
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const result = await parser.findModelsAndEndpoints(exampleRaml);
+            expect(result.endpoints).to.have.lengthOf(2);
+
+            expect(result.endpoints[0].url).to.equal('/{project}');
+            expect(result.endpoints[1].url).to.equal('/{project}/nodes');
+            expect(result.endpoints[1].urlParameters).to.deep.equal({
+                project: {
+                    description: 'Description of project',
+                    type: 'string',
+                    required: true
+                }
+            });
+        });
+
     });
 
     describe('traverseRequest', () => {
@@ -317,6 +378,28 @@ describe('MeshRamlParser', () => {
             };
             const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
             expect(result.queryParameters).to.deep.equal({
+                lang: {
+                    description: 'description of lang',
+                    example: 'en',
+                    repeat: false,
+                    required: false,
+                    type: 'string'
+                }
+            });
+        });
+
+        it('adds the passed url parameters', async () => {
+            const urlParameters: UrlParameterMap = {
+                lang: {
+                    description: 'description of lang',
+                    example: 'en',
+                    repeat: false,
+                    required: false,
+                    type: 'string'
+                }
+            };
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', urlParameters, {});
+            expect(result.urlParameters).to.deep.equal({
                 lang: {
                     description: 'description of lang',
                     example: 'en',

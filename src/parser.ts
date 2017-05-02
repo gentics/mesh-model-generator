@@ -66,7 +66,43 @@ export class MeshRamlParser {
             }
         }
 
+        this.addMissingUriParameters(endpoints);
+
         return { endpoints, models };
+    }
+
+    /** For parent-child endpoints (e.g. "/{project}", "/{project}/nodes"), add the uri parameters of the parent. */
+    protected addMissingUriParameters(endpoints: Endpoint[]): void {
+        const endpointsByUrl: { [url: string]: Endpoint } = { };
+        for (let endpoint of endpoints) {
+            // only add URLs with "{parameter}"
+            if (/\{[^\}]+\}/.test(endpoint.url)) {
+                endpointsByUrl[endpoint.url] = endpoint;
+            }
+        }
+
+        const endpointsSortedByShortToLongUrl = endpoints.slice().sort((a, b) => a.url.length - b.url.length);
+        for (let endpoint of endpointsSortedByShortToLongUrl) {
+            const rx = /\{([a-zA-Z0-9]+)\}/g;
+            let matches: RegExpMatchArray | null;
+            // find {parameters} in URL
+            while ((matches = rx.exec(endpoint.url)) !== null) {
+                // Name of the parameter, e.g. 'groupUuid'
+                const paramName = matches[1];
+                // Part of the url that leads to the parameter, e.g. '/groups/{groupUuid}'
+                const urlPart = (matches.input || '').substr(0, (matches.index || 0) + matches[0].length);
+
+                if (!endpoint.urlParameters || !endpoint.urlParameters[paramName]) {
+                    // Find parameter in the parent endpoint
+                    const parentEndpoint = endpointsByUrl[urlPart];
+                    if (parentEndpoint && parentEndpoint.urlParameters && parentEndpoint.urlParameters[paramName]) {
+                        endpoint.urlParameters = Object.assign({}, parentEndpoint.urlParameters, endpoint.urlParameters || {});
+                    } else {
+                        throw new Error(`MeshRamlParser: No definition of URL parameter "${paramName}" can be found for url "${endpoint.url}"`);
+                    }
+                }
+            }
+        }
     }
 
     async traverseRequest(requestSchema: RequestSchemaInRAML, methodName: string, url: string, urlParams: UrlParameterMap | undefined, models: ModelMap): Promise<Endpoint> {
