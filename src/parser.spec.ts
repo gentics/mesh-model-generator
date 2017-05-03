@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { MeshRamlParser } from './parser';
-import { ModelMap, ResponseMapYaml, PropertyDefinition, Endpoint, ParsedMeshRAML, RequestSchemaInRAML, ObjectProperty, PrimitiveProperty, ArrayProperty } from './interfaces';
+import { ModelMap, ResponseMapYaml, PropertyDefinition, Endpoint, ParsedMeshRAML, RequestSchemaInRAML,
+    ObjectProperty, PrimitiveProperty, ArrayProperty, UrlParameterMap } from './interfaces';
 
 
 describe('MeshRamlParser', () => {
@@ -61,7 +62,7 @@ describe('MeshRamlParser', () => {
                 }
             };
 
-            parser.traverseRequest = async (reqRaml, methodName, url, models) => {
+            parser.traverseRequest = async (reqRaml, methodName, url, urlParams, models) => {
                 expect(reqRaml).to.deep.equal({ 'example endpoint': true });
                 expect(methodName).to.equal('post');
                 expect(url).to.equal('/users');
@@ -105,7 +106,7 @@ describe('MeshRamlParser', () => {
                 }
             };
 
-            parser.traverseRequest = async (reqRaml, methodName, url, models) => {
+            parser.traverseRequest = async (reqRaml, methodName, url, urlParams, models) => {
                 models['example'] = {
                     description: 'example for unit test',
                     type: 'number'
@@ -126,6 +127,12 @@ describe('MeshRamlParser', () => {
             const exampleRaml = {
                 '/': {
                     '/{project}': {
+                        uriParameters: {
+                            project: {
+                                type: 'string',
+                                required: true
+                            }
+                        },
                         get: {
                             description: 'description of projects endpoint',
                             responses: {
@@ -165,6 +172,12 @@ describe('MeshRamlParser', () => {
             const exampleRaml = {
                 '/{project}': {
                     '/': {
+                        uriParameters: {
+                            project: {
+                                type: 'string',
+                                required: true
+                            }
+                        },
                         get: {
                             description: 'description of projects endpoint',
                             responses: {
@@ -277,18 +290,18 @@ describe('MeshRamlParser', () => {
                 return { 201: { parsedExampleResponse: true } as any };
             };
 
-            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', modelMap);
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, modelMap);
             expect(result.responses).to.deep.equal({ 201: { parsedExampleResponse: true } });
         });
 
         it('copies relevant properties to the result object', async () => {
-            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', {});
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
             expect(result.description).to.equal('create user');
             expect(result.url).to.equal('/users');
         });
 
         it('uppercases the request method', async () => {
-            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', {});
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
             expect(result.method).to.equal('POST');
         });
 
@@ -302,7 +315,7 @@ describe('MeshRamlParser', () => {
                     type: 'string'
                 }
             };
-            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', {});
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
             expect(result.queryParameters).to.deep.equal({
                 lang: {
                     description: 'description of lang',
@@ -315,7 +328,7 @@ describe('MeshRamlParser', () => {
         });
 
         it('adds the request schema from the RAML', async () => {
-            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', {});
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
             expect(result.requestBodySchema).to.deep.equal({
                 type: 'object',
                 id: 'urn:jsonschema:com:gentics:mesh:core:rest:user:UserCreateRequest',
@@ -330,13 +343,13 @@ describe('MeshRamlParser', () => {
 
         it('adds the request body example from the RAML', async () => {
             exampleRequestRaml.body['application/json'].example = '{"firstname":"John Doe"}';
-            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', {});
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
             expect(result.requestBodyExample).to.deep.equal({ firstname: 'John Doe' });
         });
 
         it('adds the parsed models to the model hash via normalizeSchema', async () => {
             const models = {};
-            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', models);
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, models);
             expect(models).to.have.property('urn:jsonschema:com:gentics:mesh:core:rest:user:UserCreateRequest');
             expect(models).to.have.property('urn:jsonschema:com:gentics:mesh:core:rest:user:UserResponse');
         });
@@ -598,8 +611,8 @@ class MeshRamlParserExposeProtectedProperties extends MeshRamlParser {
         return super.findModelsAndEndpoints(apiRaml);
     }
 
-    public traverseRequest(reqRaml: any, methodName: string, url: string, models: ModelMap) {
-        return super.traverseRequest(reqRaml, methodName, url, models);
+    public traverseRequest(reqRaml: any, methodName: string, url: string, urlParams: UrlParameterMap | undefined, models: ModelMap) {
+        return super.traverseRequest(reqRaml, methodName, url, urlParams, models);
     }
 
     public traverseResponseSchemas(responseMap: ResponseMapYaml, models: ModelMap) {

@@ -15,6 +15,67 @@ describe('TypescriptModelRenderer', () => {
         });
     });
 
+    describe('renderAll()', () => {
+
+        it('calls fileHead() with the api version of the passed raml', async () => {
+            renderer.fileHead = (version: string) => {
+                expect(version).to.equal('0.9.1');
+                return Promise.resolve('File head\n');
+            };
+            renderer.generateEndpointList = () => Promise.resolve('Endpoint list');
+            renderer.generateInterfaces = () => Promise.resolve('Model interfaces');
+
+            const input = { version: '0.9.1' } as ParsedMeshRAML;
+            const result = await renderer.renderAll(input);
+            expect(result).to.equal('File head\nModel interfaces');
+        });
+
+        it('calls generateInterfaces() with the passed raml', async () => {
+            const input = { } as ParsedMeshRAML;
+            renderer.generateInterfaces = (raml) => {
+                expect(raml).to.equal(input);
+                return Promise.resolve('Model interfaces');
+            };
+
+            const result = await renderer.renderAll(input);
+            expect(result).to.equal('Model interfaces');
+        });
+
+        it('calls generateEndpointList() with the passed raml if addEndpointList option is true', async () => {
+            renderer.options.addEndpointList = true;
+            const input = { } as ParsedMeshRAML;
+            let called = false;
+            renderer.generateInterfaces = (raml) => {
+                expect(raml).to.equal(input);
+                return Promise.resolve('Model interfaces');
+            };
+            renderer.generateEndpointList = (raml) => {
+                called = true;
+                return Promise.resolve('Endpoint list');
+            };
+
+            await renderer.renderAll(input);
+            expect(called).to.be.true;
+        });
+
+        it('does not call generateEndpointList() if addEndpointList option is false', async () => {
+            const input = { } as ParsedMeshRAML;
+            renderer.options.addEndpointList = false;
+            let called = false;
+            renderer.generateInterfaces = (raml) => {
+                return Promise.resolve('Model interfaces');
+            };
+            renderer.generateEndpointList = (raml) => {
+                called = true;
+                return Promise.resolve('Endpoint list');
+            };
+
+            await renderer.renderAll(input);
+            expect(called).to.be.false;
+        });
+
+    });
+
     it('returns an empty string when no models are passed', async () => {
         const result = await renderer.renderAll({
             baseUri: '',
@@ -274,6 +335,133 @@ describe('TypescriptModelRenderer', () => {
 
     });
 
+    describe('generateEndpointList()', () => {
+
+        it('outputs a hash of all endpoints and their methods', async () => {
+            const input: ParsedMeshRAML = {
+                baseUri: '/api/v1',
+                endpoints: [
+                    {
+                        description: 'Read multiple groups and return a paged list response.',
+                        method: 'GET',
+                        url: '/groups',
+                        queryParameters: {
+                            perPage: {
+                                description: 'Number of elements per page. Use in combination with "page".',
+                                type: 'number',
+                                required: false,
+                                repeat: false,
+                                default: '25',
+                                example: '42'
+                            },
+                            page: {
+                                description: 'Number of page to be loaded.',
+                                type: 'number',
+                                required: false,
+                                repeat: false,
+                                default: '1',
+                                example: '42'
+                            }
+                        },
+                        responses: {
+                            200: {
+                                description: 'List response which contains the found groups.',
+                                responseBodySchema: {
+                                    type: 'object',
+                                    id: 'urn:jsonschema:com:gentics:mesh:core:rest:group:GroupListResponse',
+                                    properties: { } // irrelevant for this test
+                                }
+                            }
+                        }
+                    },
+                    {
+                        description: 'Create a new group.',
+                        method: 'POST',
+                        url: '/groups',
+                        requestBodySchema: {
+                            type: 'object',
+                            id: 'urn:jsonschema:com:gentics:mesh:core:rest:group:GroupCreateRequest',
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                    required: true,
+                                    description: 'Name of the group.'
+                                }
+                            }
+                        },
+                        requestBodyExample: '{\n"name": "New group"\n}',
+                        responses: {
+                            201: {
+                                description: 'Created group.',
+                                responseBodySchema: {
+                                    type: 'object',
+                                    id: 'urn:jsonschema:com:gentics:mesh:core:rest:group:GroupResponse',
+                                    properties: { } // irrelevant for this test
+                                }
+                            }
+                        }
+                    }
+                ],
+                models: { },
+                version: '0.9.1'
+            };
+            renderer.options.endpointInterface = 'ApiEndpoints';
+            const result = await renderer.generateEndpointList(input);
+
+            expect(result).to.equal(unindent `
+                /** List of all API endpoints and their types */
+                export interface ApiEndpoints {
+                    GET: {
+                        /** Read multiple groups and return a paged list response. */
+                        '/groups': {
+                            request?: {
+                                urlParams?: undefined;
+                                queryParams?: {
+                                    /**
+                                     * Number of elements per page (default: 25). Use in combination with "page".
+                                     * @example 42
+                                     */
+                                    perPage?: number;
+                                    /**
+                                     * Number of page to be loaded (default: 1).
+                                     * @example 42
+                                     */
+                                    page?: number;
+                                };
+                                body?: undefined;
+                            };
+                            responseType: GroupListResponse;
+                            responseTypes: {
+                                /** List response which contains the found groups. */
+                                200: GroupListResponse;
+                            };
+                        };
+                    };
+                    POST: {
+                        /** Create a new group. */
+                        '/groups': {
+                            request: {
+                                urlParams?: undefined;
+                                queryParams?: undefined;
+                                body: GroupCreateRequest;
+                            };
+                            responseType: GroupResponse;
+                            responseTypes: {
+                                /** Created group. */
+                                201: GroupResponse;
+                            };
+                        };
+                    };
+                    PUT: { };
+                    UPDATE: { };
+                    DELETE: { };
+                }
+
+            `);
+        });
+
+    });
+
     describe('generateJsDoc()', () => {
 
         it('renders single-line descriptions in one line', () => {
@@ -285,7 +473,7 @@ describe('TypescriptModelRenderer', () => {
             ]);
         });
 
-        it('breaks multi-line descriptions into multiple lines', () => {
+        it('breaks multi-line descriptions into multiple comment lines', () => {
             const jsdoc = renderer.generateJsDoc({
                 description: 'A description\nthat spans\nmultiple lines\n\nworks as expected'
             });
@@ -300,15 +488,37 @@ describe('TypescriptModelRenderer', () => {
             ]);
         });
 
-        it('breaks dot-separated descriptions at sentence boundaries', () => {
+        it('adds default parameters at the end of the first sentence or line', () => {
+            const jsdoc1 = renderer.generateJsDoc({
+                description: 'Some model. This is mainly used for xyz. Must always be provided.',
+                defaultValue: 15
+            });
+            expect(jsdoc1).to.deep.equal([
+                '/** Some model (default: 15). This is mainly used for xyz. Must always be provided. */'
+            ]);
+
+            const jsdoc2 = renderer.generateJsDoc({
+                description: 'Some model\nwith an unnecessary\nmultiline description.',
+                defaultValue: 15
+            });
+            expect(jsdoc2).to.deep.equal([
+                '/**',
+                ' * Some model (default: 15)',
+                ' * with an unnecessary',
+                ' * multiline description.',
+                ' */'
+            ]);
+        });
+
+        it('wraps long descriptions to multiple lines at word boundaries', () => {
             const jsdoc = renderer.generateJsDoc({
-                description: 'Some model. This is mainly used for xyz. Must always be provided.'
+                description: 'This is a very long description that should be wrapped'
+                    + ' to the next line at word boundaries, instead of just being used as-is.'
             });
             expect(jsdoc).to.deep.equal([
                 '/**',
-                ' * Some model.',
-                ' * This is mainly used for xyz.',
-                ' * Must always be provided.',
+                ' * This is a very long description that should be wrapped to the next line at word',
+                ' * boundaries, instead of just being used as-is.',
                 ' */'
             ]);
         });
@@ -641,12 +851,13 @@ class TypescriptModelRendererExposeProtectedProperties extends TypescriptModelRe
         return super.endpointsWithResponseType(schema, endpoints);
     }
 
-    generateJsDoc({ description, example, responses }: {
+    generateJsDoc({ description, example, defaultValue, responses }: {
                 description?: string,
                 example?: string
+                defaultValue?: any,
                 responses?: CombinedResponseInfo[]
             }) {
-        return super.generateJsDoc({ description, example, responses });
+        return super.generateJsDoc({ description, example, defaultValue, responses });
     }
 
     sortEndpointsForJsDoc(endpoints: CombinedResponseInfo[]): CombinedResponseInfo[] {

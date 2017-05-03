@@ -1,6 +1,7 @@
 export interface ArrayProperty {
     type: 'array';
     description?: string;
+    example?: any[];
     required?: boolean;
     items: PropertyDefinition;
 }
@@ -12,9 +13,10 @@ export interface CombinedResponseInfo {
 }
 
 export interface Endpoint {
-    method: 'DELETE' | 'GET' | 'POST' | 'PUT' | 'UPDATE';
+    method: RequestMethod;
     url: string;
     description: string;
+    urlParameters?: UrlParameterMap;
     queryParameters?: QueryParameterMap;
     requestBodyExample?: string;
     requestBodySchema?: PropertyDefinition;
@@ -26,11 +28,13 @@ export interface ModelMap {
 }
 
 export interface QueryParameterMap {
-    [name: string]: QueryParameter;
+    [name: string]: Parameter;
 };
 
-export interface QueryParameter {
+export interface Parameter {
+    default?: string;
     description: string;
+    displayName?: string;
     type: 'boolean' | 'number' | 'string';
     required: boolean;
     repeat: boolean;
@@ -40,6 +44,7 @@ export interface QueryParameter {
 export interface ObjectProperty {
     type: 'object';
     description?: string;
+    example?: any;
     required?: boolean;
     id: string;
     $ref?: string;
@@ -65,6 +70,8 @@ export interface ParsedMeshRAML {
     /** The mesh version the RAML was generated from. */
     version: string;
 }
+
+export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'UPDATE' | 'DELETE';
 
 /** Request as represented in the input RAML. Transformed to {@link ParsedMeshRAML} by the parser. */
 export interface RequestSchemaInRAML {
@@ -92,6 +99,7 @@ export interface RequestSchemaInRAML {
 export interface PrimitiveProperty {
     type: 'any' | 'boolean' | 'integer' | 'number' | 'string';
     description?: string;
+    example?: any;
     required?: boolean;
 }
 
@@ -121,4 +129,8 @@ export interface ResponseMapYaml {
             }
         }
     };
+}
+
+export interface UrlParameterMap {
+    [name: string]: Parameter;
 }

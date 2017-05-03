@@ -58,6 +58,7 @@ function watch() {
 function test() {
     const watching = process.argv.some(arg => arg === 'watch');
     process.exitCode = 0;
+    Error.stackTraceLimit = 50;
 
     return gulp.src(['src/**/*.spec.ts'])
         .pipe(mocha({

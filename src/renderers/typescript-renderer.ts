@@ -1,23 +1,25 @@
 import { ModelRenderer } from './renderer';
-import { ParsedMeshRAML, ModelMap, Endpoint, ObjectProperty, PropertyDefinition, CombinedResponseInfo } from '../interfaces';
+import { ParsedMeshRAML, ModelMap, Endpoint, ObjectProperty, PropertyDefinition, CombinedResponseInfo, Parameter } from '../interfaces';
 import { unindent } from '../utils/unindent';
 import { formatAsObjectKey, formatValueAsPOJO } from '../utils/format-as-pojo';
 import { unhandledCase } from '../utils/unhandled-case';
 
 export const defaultOptions = {
+    addEndpointList: false,
     emitIntegerAs: 'Integer',
     emitInterfacesAsReadonly: false,
     emitRequestExamples: true,
     emitRequestURLs: false,
     emitResponseExamples: false,
+    endpointInterface: 'ApiEndpoints',
     indentation: '    ',
     interfacePrefix: '',
     interfaceSuffix: '',
+    methodSortOrder: ['GET', 'POST', 'PUT', 'UPDATE', 'DELETE'] as Array<'GET' | 'POST' | 'PUT' | 'UPDATE' | 'DELETE'>,
     sortInterfaces: true,
     sortKeys: true
 };
 export type Options = typeof defaultOptions;
-
 
 export type ModelFilter = (model: ObjectProperty, modelMap: ModelMap) => boolean;
 
@@ -35,7 +37,11 @@ export class TypescriptModelRenderer implements ModelRenderer {
     async renderAll(raml: ParsedMeshRAML): Promise<string> {
         const always = () => true;
         const head = await this.fileHead(raml.version);
-        const body = await this.generateInterfaces(raml, always);
+        const bodyParts = [
+            this.options.addEndpointList ? await this.generateEndpointList(raml) : '',
+            await this.generateInterfaces(raml, always)
+        ];
+        const body = bodyParts.filter(part => !!part).join('\n');
         return body ? head + body : '';
     }
 
@@ -50,9 +56,220 @@ export class TypescriptModelRenderer implements ModelRenderer {
     }
 
     /**
-     * Generate the TypeScript interfaces for a
+     * Generate a TypeScript interface that lists all API endpoints and their request & response models.
      */
-    protected async generateInterfaces(raml: ParsedMeshRAML, filter: ModelFilter): Promise<string> {
+    async generateEndpointList(raml: ParsedMeshRAML): Promise<string> {
+        const lines: string[] = [];
+        const endpointsByMethod = this.groupEndpointsByMethod(raml.endpoints);
+
+        // Iterate over the endpoints by method...
+        for (let method of Object.keys(endpointsByMethod)) {
+
+            const urlLines: string[] = [];
+
+            // ... and by URL
+            for (let endpoint of endpointsByMethod[method]) {
+                urlLines.push(
+                    ...this.generateJsDoc({ description: endpoint.description }),
+                    formatAsObjectKey(endpoint.url) + ': {',
+                    ...this.indent(await this.formatEndpointInterface(endpoint)),
+                    '};'
+                );
+            }
+
+            if (urlLines.length) {
+                lines.push(
+                    method + ': {',
+                    ...this.indent(urlLines),
+                    '};'
+                );
+            } else {
+                lines.push(method + ': { };')
+            }
+        }
+
+        return [
+            '/** List of all API endpoints and their types */',
+            'export interface ' + this.options.endpointInterface + ' {',
+            ...this.indent(lines),
+            '}\n',
+        ].join('\n');
+    }
+
+    protected groupEndpointsByMethod(endpoints: Endpoint[]): { [method: string]: Endpoint[] } {
+        const grouped: { [method: string]: Endpoint[] } = { };
+
+        // Sort methods by method sort order
+        for (let method of this.options.methodSortOrder) {
+            grouped[method] = [];
+        }
+
+        for (let endpoint of endpoints) {
+            grouped[endpoint.method].push(endpoint);
+        }
+
+        // Sort arrays by url in grouped-by-method hash
+        for (let key in grouped) {
+            grouped[key].sort((a, b) => a.url < b.url ? -1 : 1);
+        }
+
+        return grouped;
+    }
+
+    protected groupEndpointsByUrl(endpoints: Endpoint[]): { [url: string]: Endpoint[] } {
+        const grouped: { [url: string]: Endpoint[] } = { };
+        // Sort keys by URL
+        for (let url of endpoints.map(endpoint => endpoint.url).sort()) {
+            grouped[url] = [];
+        }
+
+        for (let endpoint of endpoints) {
+            grouped[endpoint.url].push(endpoint);
+        }
+
+        // Sort methods in grouped-by-url hash
+        for (let key in grouped) {
+            grouped[key].sort((a, b) => {
+                const orderA = this.options.methodSortOrder.indexOf(a.method);
+                const orderB = this.options.methodSortOrder.indexOf(b.method);
+                return orderA - orderB;
+            });
+        }
+
+        return grouped;
+    }
+
+    protected async formatEndpointInterface(endpoint: Endpoint): Promise<string[]> {
+        // const example = endpoint.requestBodyExample && formatValueAsPOJO(endpoint.requestBodyExample, this.options.indentation);
+
+        // Format a hash with the parameters required for requesting from the endpoint
+        const requestLines: string[] = [
+            ...this.formatParameters(endpoint.urlParameters, 'urlParams'),
+            ...this.formatParameters(endpoint.queryParameters, 'queryParams')
+        ];
+
+        // Format request body interface
+        if (!endpoint.requestBodySchema) {
+            requestLines.push('body?: undefined;');
+        } else {
+            // const modelRef = endpoint.requestBodySchema.type === 'object' && (endpoint.requestBodySchema.id || endpoint.requestBodySchema.$ref)
+            const optional = endpoint.requestBodySchema.required === false;
+            const optionalText = optional ? '?' : '';
+            const valueText = await this.renderTypescriptPropertyDefinition(endpoint.requestBodySchema);
+            requestLines.push('body' + optionalText + ': ' + valueText + ';');
+        }
+
+        const isOptional = (input?: { [k: string]: { required?: boolean } }) =>
+            input == null || Object.keys(input).every(k => !input[k].required);
+
+        // Determine if all request parameters are optional
+        const bodySchema = endpoint.requestBodySchema;
+        const bodyOptional = !bodySchema || bodySchema.type === 'object' && isOptional(bodySchema.properties);
+        const urlParamsOptional = isOptional(endpoint.urlParameters);
+        const queryParamsOptional = isOptional(endpoint.queryParameters);
+        const allRequestParamsAreOptional = bodyOptional && urlParamsOptional && queryParamsOptional;
+
+        const lines: string[] = [
+            allRequestParamsAreOptional ? 'request?: {' : 'request: {',
+            ...this.indent(requestLines),
+            '};'
+        ];
+
+        // Find all types that can be returned by the endpoint
+        const allResponseTypes: string[] = [];
+        const responseStatusLines: string[] = [];
+        let responsesWithMissingType = 0;
+
+        for (let statusCode of Object.keys(endpoint.responses)) {
+            const response = endpoint.responses[Number(statusCode)];
+            let responseType: string;
+            if (response.responseBodySchema) {
+                responseType = await this.renderTypescriptPropertyDefinition(response.responseBodySchema);
+            } else {
+                responseType =  'undefined /* TODO: This is not typed in the RAML */';
+                responsesWithMissingType += 1;
+            }
+
+            if (allResponseTypes.indexOf(responseType) < 0) {
+                allResponseTypes.push(responseType);
+            }
+            responseStatusLines.push(...this.generateJsDoc({ description: response.description }));
+            responseStatusLines.push(`${statusCode}: ${responseType};`);
+        }
+
+        if (!Object.keys(endpoint.responses).length || responsesWithMissingType === allResponseTypes.length) {
+            lines.push(...[
+                'responseType: any; // TODO: This is not typed in the RAML',
+                'responseTypes: {',
+                this.options.indentation + '200: any; // TODO: This is not typed in the RAML',
+                '};'
+            ]);
+        } else {
+            lines.push(...[
+                'responseType: ' + allResponseTypes.join(' | ') + ';',
+                'responseTypes: {',
+                ...this.indent(responseStatusLines),
+                '};'
+            ]);
+        }
+
+        return lines;
+    }
+
+    /** Formats url parameters / query parameters as TypeScript interface. */
+    protected formatParameters(paramMap: { [key: string]: Parameter } | undefined, resultKey: string): string[] {
+        if (!paramMap || Object.keys(paramMap).length === 0) {
+            return [resultKey + '?: undefined;'];
+        } else {
+            const lines = [] as string[];
+            const optional = !Object.keys(paramMap)
+                .some(param => paramMap[param].required);
+
+            lines.push(resultKey + (optional ? '?' : '') + ': {');
+            for (let paramName of Object.keys(paramMap)) {
+                const param = paramMap[paramName];
+
+                // The "default" and "example" values are a string also for numbers and booleans
+                let defaultValue: any;
+                let exampleText: string;
+                if (param.type === 'number') {
+                    defaultValue = Number(param.default);
+                    exampleText = String(Number(param.example));
+                } else if (param.type === 'boolean') {
+                    defaultValue = !!param.default;
+                    exampleText = String(!!param.default);
+                } else {
+                    defaultValue = param.default !== undefined && JSON.stringify(param.default);
+                    exampleText = param.example != null ? JSON.stringify(param.example) : '';
+                }
+
+                const description = param.description;
+                const example = this.options.emitRequestExamples ? exampleText : '';
+                const keyText = formatAsObjectKey(paramName) + (param.required ? '': '?');
+                const typeText = param.repeat ? `${param.type} | ${param.type}[]` : param.type;
+                const jsdoc = this.generateJsDoc({ description, example, defaultValue })
+                    .join('\n')
+                    .replace(/ \*\n \* @example\n \* /g, ' * @example ')
+                    .split('\n');
+
+                lines.push(...this.indent([
+                    ...jsdoc,
+                    keyText + ': ' + typeText + ';'
+                ]));
+            }
+            lines.push('};');
+
+            return lines;
+        }
+    }
+
+
+    /**
+     * Generate the TypeScript interfaces for all models in the parsed RAML input.
+     * @param raml The parsed mesh raml, output by `MeshRamlParser`.
+     * @param filter A filter function similar to Array.prototype.filter.
+     */
+    async generateInterfaces(raml: ParsedMeshRAML, filter: ModelFilter): Promise<string> {
         const { models, endpoints } = raml;
         let modelNames = Object.keys(models);
 
@@ -160,8 +377,9 @@ export class TypescriptModelRenderer implements ModelRenderer {
     }
 
     /** Returns lines representing a JsDoc comment for the passed information */
-    protected generateJsDoc({ description, example, responses }: {
+    protected generateJsDoc({ description, defaultValue, example, responses }: {
                 description?: string,
+                defaultValue?: any,
                 example?: string
                 responses?: CombinedResponseInfo[]
             }): string[] {
@@ -174,8 +392,13 @@ export class TypescriptModelRenderer implements ModelRenderer {
             return [];
         }
 
+        if (defaultValue != null && description) {
+            let defaultText = formatValueAsPOJO(defaultValue);
+            description = description.replace(/(\. ?)|(\n)|$/, ` (default: ${defaultText})$1$2`);
+        }
+
         const descriptionLines = description
-            ? description.replace(/\. /g, '.\n').split('\n')
+            ? description.replace(/\. (?!\()/g, '.\n').split('\n')
             : [];
 
         if (!example && description && descriptionLines.length === 1 && !responses) {
@@ -190,33 +413,15 @@ export class TypescriptModelRenderer implements ModelRenderer {
         if (description && responses) {
             lines.push('');
         }
+
         if (responses) {
             if (responses.length === 1) {
-                // Output:
-                // Returned for: `GET endpoint/url`
-                lines.push([
-                    'Returned for `',
-                    responses[0].endpoint.method,
-                    ' ',
-                    responses[0].endpoint.url,
-                    '`'
-                ].join(''));
+                const { method, url } = responses[0].endpoint;
+                lines.push(`Returned for \`${method} ${url}\``);
             } else {
-                // Output:
-                // Returned for:
-                //   - `GET endpoint-1/url`
-                //   - `POST endpoint-2/url`
-                lines.push(`Returned for:`);
-                for (let res of responses) {
-                    lines.push([
-                        this.options.indentation.replace(/  $/, ''),
-                        '- `',
-                        res.endpoint.method,
-                        ' ',
-                        res.endpoint.url,
-                        '`'
-                    ].join(''));
-                }
+                const listIndentation = this.options.indentation.replace(/  $/, '');
+                lines.push(`Returned for:`, ...responses.map(({ endpoint }) =>
+                    `${listIndentation}- \`${endpoint.method} ${endpoint.url}\``));
             }
         }
 
@@ -225,8 +430,10 @@ export class TypescriptModelRenderer implements ModelRenderer {
         }
 
         if (example) {
-            lines.push('@example');
-            lines.push(...example.split('\n'));
+            if (typeof example !== 'string') {
+                example = JSON.stringify(example, null, this.options.indentation);
+            }
+            lines.push('@example', ...example.split('\n'));
         }
 
         return [
@@ -236,14 +443,19 @@ export class TypescriptModelRenderer implements ModelRenderer {
         ];
     }
 
+    /** Indent lines of text with the indentation provided in the renderer options */
+    protected indent(text: string[]): string[] {
+        return text && text.map(line => line ? this.options.indentation + line : '');
+    }
+
     /**
      * Sort a list of responses by (method -> url).
      * Can be overwritten by the consuming code to add additional logic.
      */
-    protected sortEndpointsForJsDoc(list: CombinedResponseInfo[], methodOrder = ['GET', 'POST', 'PUT', 'UPDATE', 'DELETE']): CombinedResponseInfo[] {
+    protected sortEndpointsForJsDoc(list: CombinedResponseInfo[]): CombinedResponseInfo[] {
         list.sort((a, b) => {
-            const orderIndexA = methodOrder.indexOf(a.endpoint.method);
-            const orderIndexB = methodOrder.indexOf(b.endpoint.method);
+            const orderIndexA = this.options.methodSortOrder.indexOf(a.endpoint.method);
+            const orderIndexB = this.options.methodSortOrder.indexOf(b.endpoint.method);
             if (orderIndexA !== orderIndexB) {
                 return orderIndexA - orderIndexB;
             } else if (a.endpoint.url < b.endpoint.url) {
@@ -274,7 +486,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
         for (let key of keys) {
             const prop = props[key];
             if (prop.description) {
-                lines.push(...this.generateJsDoc({ description: prop.description }));
+                lines.push(...this.generateJsDoc({ description: prop.description, example: prop.example }));
             }
 
             const readonlyText = this.options.emitInterfacesAsReadonly ? 'readonly ' : '';
@@ -284,7 +496,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
             lines.push([readonlyText, formatAsObjectKey(key), separator, valueText, ';'].join(''));
         }
 
-        return lines.map(line => this.options.indentation + line);
+        return this.indent(lines);
     }
 
     protected async renderTypescriptPropertyDefinition(prop: PropertyDefinition): Promise<string> {

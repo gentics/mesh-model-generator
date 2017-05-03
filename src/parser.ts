@@ -1,16 +1,15 @@
 import { safeLoad as loadYaml } from 'js-yaml';
-import { Endpoint, ParsedMeshRAML, PropertyDefinition, ModelMap, ResponseMap, ResponseMapYaml, ObjectProperty, RequestSchemaInRAML, Response } from './interfaces';
+import { Endpoint, ParsedMeshRAML, PropertyDefinition, ModelMap, ResponseMap, ResponseMapYaml, ObjectProperty, RequestSchemaInRAML, Response, UrlParameterMap } from './interfaces';
 import { formatJsonAsPOJO } from './utils/format-as-pojo';
 import { unhandledCase } from './utils/unhandled-case';
 
 
-const crudMethods = ['delete', 'get', 'post', 'put', 'update'];
+const requestMethods = ['delete', 'get', 'post', 'put', 'update'];
 
 /**
  * Parses the Gentics Mesh RAML for request and response models.
  */
 export class MeshRamlParser {
-
     /**
      * Entry point. Parses mesh RAML from a string.
      */
@@ -55,12 +54,13 @@ export class MeshRamlParser {
 
             for (let childPathName of childPaths) {
                 const childPath = path[childPathName];
-                const methods = Object.keys(childPath).filter(key => crudMethods.indexOf(key) >= 0);
+                const methods = Object.keys(childPath).filter(key => requestMethods.indexOf(key) >= 0);
 
                 for (let methodName of methods) {
                     const requestSchemaRaml = childPath[methodName];
                     const url = (pathName + (childPathName === '/' ? '' : childPathName)).replace(/\/+/, '/');
-                    const parsedRequest = await this.traverseRequest(requestSchemaRaml, methodName, url, models);
+                    const urlParams = childPath.uriParameters;
+                    const parsedRequest = await this.traverseRequest(requestSchemaRaml, methodName, url, urlParams, models);
                     endpoints.push(parsedRequest);
                 }
             }
@@ -69,10 +69,11 @@ export class MeshRamlParser {
         return { endpoints, models };
     }
 
-    async traverseRequest(requestSchema: RequestSchemaInRAML, methodName: string, url: string, models: ModelMap): Promise<Endpoint> {
+    async traverseRequest(requestSchema: RequestSchemaInRAML, methodName: string, url: string, urlParams: UrlParameterMap | undefined, models: ModelMap): Promise<Endpoint> {
         const parsedRequest: Endpoint = {
             url,
             method: methodName.toUpperCase() as any,
+            urlParameters: urlParams,
             queryParameters: requestSchema.queryParameters,
             description: requestSchema.description,
             responses: { }
