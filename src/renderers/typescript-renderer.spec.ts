@@ -414,8 +414,8 @@ describe('TypescriptModelRenderer', () => {
                     GET: {
                         /** Read multiple groups and return a paged list response. */
                         '/groups': {
-                            request?: {
-                                urlParams?: undefined;
+                            request: {
+                                urlParams?: { };
                                 queryParams?: {
                                     /**
                                      * Number of elements per page (default: 25). Use in combination with "page".
@@ -441,8 +441,8 @@ describe('TypescriptModelRenderer', () => {
                         /** Create a new group. */
                         '/groups': {
                             request: {
-                                urlParams?: undefined;
-                                queryParams?: undefined;
+                                urlParams?: { };
+                                queryParams?: { };
                                 body: GroupCreateRequest;
                             };
                             responseType: GroupResponse;

@@ -164,15 +164,8 @@ export class TypescriptModelRenderer implements ModelRenderer {
         const isOptional = (input?: { [k: string]: { required?: boolean } }) =>
             input == null || Object.keys(input).every(k => !input[k].required);
 
-        // Determine if all request parameters are optional
-        const bodySchema = endpoint.requestBodySchema;
-        const bodyOptional = !bodySchema || bodySchema.type === 'object' && isOptional(bodySchema.properties);
-        const urlParamsOptional = isOptional(endpoint.urlParameters);
-        const queryParamsOptional = isOptional(endpoint.queryParameters);
-        const allRequestParamsAreOptional = bodyOptional && urlParamsOptional && queryParamsOptional;
-
         const lines: string[] = [
-            allRequestParamsAreOptional ? 'request?: {' : 'request: {',
+            'request: {',
             ...this.indent(requestLines),
             '};'
         ];
@@ -221,7 +214,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
     /** Formats url parameters / query parameters as TypeScript interface. */
     protected formatParameters(paramMap: { [key: string]: Parameter } | undefined, resultKey: string): string[] {
         if (!paramMap || Object.keys(paramMap).length === 0) {
-            return [resultKey + '?: undefined;'];
+            return [resultKey + '?: { };'];
         } else {
             const lines = [] as string[];
             const optional = !Object.keys(paramMap)
@@ -241,7 +234,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
                     defaultValue = !!param.default;
                     exampleText = String(!!param.default);
                 } else {
-                    defaultValue = param.default !== undefined && JSON.stringify(param.default);
+                    defaultValue = param.default;
                     exampleText = param.example != null ? JSON.stringify(param.example) : '';
                 }
 
@@ -394,7 +387,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
             return [];
         }
 
-        if (defaultValue != null && description) {
+        if (defaultValue !== undefined && description) {
             let defaultText = formatValueAsPOJO(defaultValue);
             description = description.replace(/(\. ?)|(\n)|$/, ` (default: ${defaultText})$1$2`);
         }
