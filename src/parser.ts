@@ -4,7 +4,7 @@ import { formatJsonAsPOJO } from './utils/format-as-pojo';
 import { unhandledCase } from './utils/unhandled-case';
 
 
-const requestMethods = ['delete', 'get', 'post', 'put', 'update'];
+const requestMethods = ['delete', 'get', 'post', 'patch', 'put'];
 
 /**
  * Parses the Gentics Mesh RAML for request and response models.

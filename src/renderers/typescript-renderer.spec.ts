@@ -452,8 +452,8 @@ describe('TypescriptModelRenderer', () => {
                             };
                         };
                     };
+                    PATCH: { };
                     PUT: { };
-                    UPDATE: { };
                     DELETE: { };
                 }
 

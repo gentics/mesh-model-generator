@@ -17,7 +17,7 @@ export const defaultOptions = {
     interfacePrefix: '',
     interfaceSuffix: '',
     maxLineLength: 100,
-    methodSortOrder: ['GET', 'POST', 'PUT', 'UPDATE', 'DELETE'] as Array<'GET' | 'POST' | 'PUT' | 'UPDATE' | 'DELETE'>,
+    methodSortOrder: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'] as Array<'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'>,
     sortInterfaces: true,
     sortKeys: true
 };

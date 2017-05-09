@@ -71,7 +71,7 @@ export interface ParsedMeshRAML {
     version: string;
 }
 
-export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'UPDATE' | 'DELETE';
+export type RequestMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 /** Request as represented in the input RAML. Transformed to {@link ParsedMeshRAML} by the parser. */
 export interface RequestSchemaInRAML {
