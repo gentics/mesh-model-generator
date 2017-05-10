@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { TypescriptModelRenderer, ModelFilter } from './typescript-renderer';
-import { ParsedMeshRAML, ModelMap, ObjectProperty, Endpoint, PropertyDefinition, CombinedResponseInfo } from '../interfaces';
+import { CombinedResponseInfo, Endpoint, ModelMap, ObjectProperty, Parameter, ParsedMeshRAML, PropertyDefinition } from '../interfaces';
 import { unindent } from '../utils/unindent';
 
 describe('TypescriptModelRenderer', () => {
@@ -488,6 +488,36 @@ describe('TypescriptModelRenderer', () => {
                     DELETE: { };
                 }
 
+            `);
+        });
+
+    });
+
+    describe('formatParameters()', () => {
+
+        it('renders newline-separated examples for string fields as multiple @example tags', () => {
+            let paramMap: { [key: string]: Parameter } = {
+                field: {
+                    description: 'Description for the field',
+                    example: 'first example line\nsecond example line',
+                    repeat: false,
+                    required: true,
+                    type: 'string'
+                }
+            };
+
+            const output = renderer['formatParameters'](paramMap, 'resultKey').join('\n');
+
+            expect(output).to.equal(unindent `
+                resultKey: {
+                    /**
+                     * Description for the field
+                     * @example
+                     *     "first example line"
+                     *     "second example line"
+                     */
+                    field: string;
+                };
             `);
         });
 

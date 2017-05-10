@@ -233,6 +233,11 @@ export class TypescriptModelRenderer implements ModelRenderer {
                 } else if (param.type === 'boolean') {
                     defaultValue = !!param.default;
                     exampleText = String(!!param.default);
+                } else if (param.type === 'string' && param.example && param.example.indexOf('\n') >= 0) {
+                    defaultValue = param.default;
+                    exampleText = param.example.split('\n')
+                        .map(line => '    ' + JSON.stringify(line))
+                        .join('\n');
                 } else {
                     defaultValue = param.default;
                     exampleText = param.example != null ? JSON.stringify(param.example) : '';
@@ -242,10 +247,19 @@ export class TypescriptModelRenderer implements ModelRenderer {
                 const example = this.options.emitRequestExamples ? exampleText : '';
                 const keyText = formatAsObjectKey(paramName) + (param.required ? '': '?');
                 const typeText = param.repeat ? `${param.type} | ${param.type}[]` : param.type;
-                const jsdoc = this.generateJsDoc({ description, example, defaultValue })
-                    .join('\n')
-                    .replace(/ \*\n \* @example\n \* /g, ' * @example ')
-                    .split('\n');
+                let jsdoc = this.generateJsDoc({ description, example, defaultValue });
+
+                if (param.type === 'string' && param.example.indexOf('\n') >= 0) {
+                    jsdoc = jsdoc
+                        .join('\n')
+                        .replace(/ \*\n \* @example\n \* /g, ' * @example\n * ')
+                        .split('\n');
+                } else {
+                    jsdoc = jsdoc
+                        .join('\n')
+                        .replace(/ \*\n \* @example\n \* /g, ' * @example ')
+                        .split('\n');
+                }
 
                 lines.push(...this.indent([
                     ...jsdoc,
