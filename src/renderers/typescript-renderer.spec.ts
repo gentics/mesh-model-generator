@@ -119,6 +119,37 @@ describe('TypescriptModelRenderer', () => {
         `);
     });
 
+    it('works with any urn schema', async () => {
+        // Fixes errors for models added in 0.9.10 (#9)
+        const models: ModelMap = {
+            'urn:jsonschema:io:vertx:core:json:JsonObject': {
+                type: 'object',
+                id: 'urn:jsonschema:io:vertx:core:json:JsonObject',
+                properties: {
+                    map: {
+                        type: 'object',
+                        additionalProperties: {
+                            type: 'any'
+                        }
+                    } as any
+                }
+            }
+        };
+
+        const result = await renderer.renderAll({
+            baseUri: '',
+            endpoints: [],
+            models,
+            version: '0.8'
+        });
+        expect(result).to.equal(unindent `
+            export interface JsonObject {
+                map?: { [key: string]: any };
+            }
+
+        `);
+    });
+
     it('renders optional properties with or without a question mark', async () => {
         const models: ModelMap = {
             'urn:jsonschema:com:gentics:mesh:core:rest:test:ExampleModel': {

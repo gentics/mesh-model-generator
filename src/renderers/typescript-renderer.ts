@@ -344,7 +344,7 @@ export class TypescriptModelRenderer implements ModelRenderer {
      *     e.g. "urn:jsonschema:com:gentics:mesh:core:rest:user:UserCreateRequest"
      */
     protected generateModelName(schemaRef: string): string {
-        const shortName = schemaRef.replace(/^urn:jsonschema:com:([a-z]+:)*/, '');
+        const shortName = schemaRef.replace(/^urn:jsonschema:([a-z]+:)*/, '');
         return this.formatModelName(shortName, schemaRef);
     }
 
