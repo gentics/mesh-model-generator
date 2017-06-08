@@ -436,6 +436,7 @@ describe('TypescriptModelRenderer', () => {
                 models: { },
                 version: '0.9.1'
             };
+
             renderer.options.endpointInterface = 'ApiEndpoints';
             const result = await renderer.generateEndpointList(input);
 
@@ -483,6 +484,54 @@ describe('TypescriptModelRenderer', () => {
                             };
                         };
                     };
+                    PATCH: { };
+                    PUT: { };
+                    DELETE: { };
+                }
+
+            `);
+        });
+
+        it('works for 204 (No Content) responses', async () => {
+            const input: ParsedMeshRAML = {
+                baseUri: '/api/v1',
+                endpoints: [{
+                    description: 'Description of the endpoint.',
+                    method: 'GET',
+                    url: '/some-endpoint',
+                    queryParameters: { },
+                    responses: {
+                        204: {
+                            description: 'Description of the 204 response'
+                        }
+                    }
+                }],
+                models: { },
+                version: '0.9.1'
+            };
+
+            renderer.options.endpointInterface = 'ApiEndpoints';
+            const result = await renderer.generateEndpointList(input);
+
+            expect(result).to.equal(unindent `
+                /** List of all API endpoints and their types */
+                export interface ApiEndpoints {
+                    GET: {
+                        /** Description of the endpoint. */
+                        '/some-endpoint': {
+                            request: {
+                                urlParams?: { };
+                                queryParams?: { };
+                                body?: undefined;
+                            };
+                            responseType: undefined;
+                            responseTypes: {
+                                /** Description of the 204 response */
+                                204: undefined;
+                            };
+                        };
+                    };
+                    POST: { };
                     PATCH: { };
                     PUT: { };
                     DELETE: { };

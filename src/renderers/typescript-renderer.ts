@@ -180,6 +180,8 @@ export class TypescriptModelRenderer implements ModelRenderer {
             let responseType: string;
             if (response.responseBodySchema) {
                 responseType = await this.renderTypescriptPropertyDefinition(response.responseBodySchema);
+            } else if (statusCode === '204') {
+                responseType = 'undefined';
             } else {
                 responseType =  'undefined /* TODO: This is not typed in the RAML */';
                 responsesWithMissingType += 1;

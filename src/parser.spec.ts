@@ -463,8 +463,8 @@ describe('MeshRamlParser', () => {
                         }
                     }
                 },
-                204: {
-                    description: 'description of 204',
+                202: {
+                    description: 'description of 202',
                     body: {
                         'application/json': {
                             schema: JSON.stringify({
@@ -521,13 +521,13 @@ describe('MeshRamlParser', () => {
             });
 
             expect(result).to.have.property('201');
-            expect(result).to.have.property('204');
+            expect(result).to.have.property('202');
         });
 
         it('copies the description of responses', async () => {
             const result = await parser.traverseResponseSchemas(exampleResponseMap, {});
             expect(result[201].description).to.equal('description of 201');
-            expect(result[204].description).to.equal('description of 204');
+            expect(result[202].description).to.equal('description of 202');
         });
 
         it('adds the parsed response body schema', async () => {
@@ -543,7 +543,7 @@ describe('MeshRamlParser', () => {
                     }
                 }
             });
-            expect(result[204].responseBodySchema).to.deep.equal({
+            expect(result[202].responseBodySchema).to.deep.equal({
                 type: 'object',
                 id: 'urn:jsonschema:com:gentics:mesh:core:rest:user:MessageResponse',
                 properties: {
@@ -561,7 +561,7 @@ describe('MeshRamlParser', () => {
             expect(result[201].responseBodyExample).to.deep.equal({
                 uuid: 'some-uuid-for-testing'
             });
-            expect(result[204].responseBodyExample).to.deep.equal({
+            expect(result[202].responseBodyExample).to.deep.equal({
                 message: 'no changes, already existed'
             });
         });
@@ -571,6 +571,19 @@ describe('MeshRamlParser', () => {
             const result = await parser.traverseResponseSchemas(exampleResponseMap, models);
             expect(models).to.have.property('urn:jsonschema:com:gentics:mesh:core:rest:user:MessageResponse');
             expect(models).to.have.property('urn:jsonschema:com:gentics:mesh:core:rest:user:UserResponse');
+        });
+
+        it('works for body-less 204 responses', async () => {
+            exampleResponseMap = {
+                204: {
+                    description: 'description of 204'
+                }
+            } as any;
+
+            const models = {};
+            const result = await parser.traverseResponseSchemas(exampleResponseMap, models);
+            expect(result).to.have.key('204');
+            expect(result[204]).to.have.property('description').which.equals('description of 204');
         });
 
     });
