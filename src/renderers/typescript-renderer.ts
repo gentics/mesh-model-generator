@@ -241,12 +241,13 @@ export class TypescriptModelRenderer implements ModelRenderer {
                 // The "default" and "example" values are a string also for numbers and booleans
                 let defaultValue: any;
                 let exampleText: string;
+
                 if (param.type === 'number') {
-                    defaultValue = Number(param.default);
-                    exampleText = String(Number(param.example));
+                    defaultValue = param.default && Number(param.default.replace(/^"(.+)"$/, '$1'));
+                    exampleText = param.example ? String(Number(param.example.replace(/^"(.+)"$/, '$1'))) : '';
                 } else if (param.type === 'boolean') {
-                    defaultValue = !!param.default;
-                    exampleText = String(!!param.default);
+                    defaultValue = param.default && String(param.default).replace(/^"(.+)"$/, '$1') === 'true';
+                    exampleText = param.example ? String(param.example).replace(/^"(.+)"$/, '$1') : '';
                 } else if (param.type === 'string' && param.example && param.example.indexOf('\n') >= 0) {
                     defaultValue = param.default;
                     exampleText = param.example.split('\n')

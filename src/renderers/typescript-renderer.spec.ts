@@ -650,6 +650,102 @@ describe('TypescriptModelRenderer', () => {
             `);
         });
 
+        it('renders examples and default values of number properties correctly', () => {
+            const paramMap: QueryParameterMap = {
+                first: {
+                    description: 'Field with a quoted default value',
+                    default: '"123"',
+                    example: '"12345"',
+                    repeat: false,
+                    required: true,
+                    type: 'number'
+                },
+                second: {
+                    description: 'Field with an unquoted default value',
+                    default: '567',
+                    example: '56789',
+                    repeat: false,
+                    required: true,
+                    type: 'number'
+                },
+                third: {
+                    description: 'Field with no default value',
+                    example: '"9876"',
+                    repeat: false,
+                    required: true,
+                    type: 'number'
+                }
+            };
+
+            const output = renderer['formatParameters'](paramMap, 'resultKey').join('\n');
+
+            expect(output).to.equal(unindent `
+                resultKey: {
+                    /**
+                     * Field with a quoted default value (default: 123)
+                     * @example 12345
+                     */
+                    first: number;
+                    /**
+                     * Field with an unquoted default value (default: 567)
+                     * @example 56789
+                     */
+                    second: number;
+                    /**
+                     * Field with no default value
+                     * @example 9876
+                     */
+                    third: number;
+                };
+            `);
+        });
+
+        it('renders examples and default values of boolean properties correctly', () => {
+            const paramMap: QueryParameterMap = {
+                first: {
+                    description: 'Field with a quoted default value',
+                    default: '"true"',
+                    example: '"false"',
+                    repeat: false,
+                    required: true,
+                    type: 'boolean'
+                },
+                second: {
+                    description: 'Field with an unquoted default value',
+                    default: 'false',
+                    example: 'true',
+                    repeat: false,
+                    required: true,
+                    type: 'boolean'
+                },
+                third: {
+                    description: 'Field with no default value',
+                    repeat: false,
+                    required: true,
+                    type: 'boolean'
+                }
+            };
+
+            const output = renderer['formatParameters'](paramMap, 'resultKey').join('\n');
+
+            expect(output).to.equal(unindent `
+                resultKey: {
+                    /**
+                     * Field with a quoted default value (default: true)
+                     * @example false
+                     */
+                    first: boolean;
+                    /**
+                     * Field with an unquoted default value (default: false)
+                     * @example true
+                     */
+                    second: boolean;
+                    /** Field with no default value */
+                    third: boolean;
+                };
+            `);
+        });
+
     });
 
     describe('generateJsDoc()', () => {
