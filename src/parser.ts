@@ -1,5 +1,5 @@
 import { safeLoad as loadYaml } from 'js-yaml';
-import { Endpoint, ParsedMeshRAML, PropertyDefinition, ModelMap, ResponseMap, ResponseMapYaml, ObjectProperty, RequestSchemaInRAML, Response, UrlParameterMap } from './interfaces';
+import { Endpoint, FormPartMap, ModelMap, ObjectProperty, Parameter, ParsedMeshRAML, PropertyDefinition, RequestSchemaInRAML, Response, ResponseMap, ResponseMapYaml, UrlParameterMap } from './interfaces';
 import { formatJsonAsPOJO } from './utils/format-as-pojo';
 import { unhandledCase } from './utils/unhandled-case';
 
@@ -115,18 +115,41 @@ export class MeshRamlParser {
             responses: { }
         };
 
-        const requestBody = requestSchema.body && requestSchema.body['application/json'];
-        if (requestBody && requestBody.example) {
-            parsedRequest.requestBodyExample = JSON.parse(requestBody.example);
-        }
-        if (requestBody && requestBody.schema) {
-            const schema: PropertyDefinition = JSON.parse(requestBody.schema);
-            parsedRequest.requestBodySchema = await this.normalizeSchema(schema, models);
+        const body = requestSchema.body;
+        const jsonBody: { schema: string; example: string; } = body && (body as any)['application/json'];
+        const formBody: FormPartMap = body && ((body as any)['multipart/form-data'] || {} as any).formParameters;
+
+        if (jsonBody) {
+            if (jsonBody.example) {
+                parsedRequest.requestBodyExample = JSON.parse(jsonBody.example);
+            }
+            if (jsonBody.schema) {
+                const schema: PropertyDefinition = JSON.parse(jsonBody.schema);
+                parsedRequest.requestBodySchema = await this.normalizeSchema(schema, models);
+            }
+        } else if (formBody) {
+            let formSchema: Partial<ObjectProperty> = {
+                type: 'object',
+                required: Object.keys(formBody).some(k => formBody[k].required),
+                properties: formBody as any
+            };
+            parsedRequest.requestBodySchema = formSchema as ObjectProperty;
         }
 
         parsedRequest.responses = await this.traverseResponseSchemas(requestSchema.responses, models);
 
         return parsedRequest;
+    }
+
+    /** Format a RAML parameters hash as a JsonSchema declaration */
+    private paramsHashToJsonSchema(parameters: { [key: string]: Parameter }, description?: string): ObjectProperty {
+        let returnValue: ObjectProperty = {
+            description,
+            type: 'object',
+            required: true,
+            properties: { }
+        } as ObjectProperty;
+        return returnValue;
     }
 
     async traverseResponseSchemas(responseMap: ResponseMapYaml, models: ModelMap): Promise<ResponseMap> {

@@ -23,6 +23,10 @@ export interface Endpoint {
     responses: ResponseMap;
 }
 
+export interface FormPartMap {
+    [name: string]: FormFilePart | Parameter;
+}
+
 export interface ModelMap {
     [name: string]: PropertyDefinition;
 }
@@ -38,7 +42,14 @@ export interface Parameter {
     type: 'boolean' | 'number' | 'string';
     required: boolean;
     repeat: boolean;
-    example: string;
+    example?: string;
+}
+
+export interface FormFilePart {
+    description: string;
+    required: boolean;
+    repeat: boolean;
+    type: 'file';
 }
 
 export interface ObjectProperty {
@@ -81,7 +92,11 @@ export interface RequestSchemaInRAML {
         'application/json': {
             schema: string;
             example: string;
-        };
+        }
+    } | {
+        'multipart/form-data': {
+            formParameters: FormPartMap;
+        }
     };
     responses: {
         [status: number]: {

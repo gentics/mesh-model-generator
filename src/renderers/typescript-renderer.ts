@@ -142,8 +142,6 @@ export class TypescriptModelRenderer implements ModelRenderer {
     }
 
     protected async formatEndpointInterface(endpoint: Endpoint): Promise<string[]> {
-        // const example = endpoint.requestBodyExample && formatValueAsPOJO(endpoint.requestBodyExample, this.options.indentation);
-
         // Format a hash with the parameters required for requesting from the endpoint
         const requestLines: string[] = [
             ...this.formatParameters(endpoint.urlParameters, 'urlParams'),
@@ -154,11 +152,20 @@ export class TypescriptModelRenderer implements ModelRenderer {
         if (!endpoint.requestBodySchema) {
             requestLines.push('body?: undefined;');
         } else {
-            // const modelRef = endpoint.requestBodySchema.type === 'object' && (endpoint.requestBodySchema.id || endpoint.requestBodySchema.$ref)
             const optional = endpoint.requestBodySchema.required === false;
             const optionalText = optional ? '?' : '';
             const valueText = await this.renderTypescriptPropertyDefinition(endpoint.requestBodySchema);
-            requestLines.push('body' + optionalText + ': ' + valueText + ';');
+
+            if (valueText.indexOf('\n') < 0) {
+                requestLines.push('body' + optionalText + ': ' + valueText + ';');
+            } else {
+                const lines = valueText.split('\n');
+                requestLines.push(
+                    'body' + optionalText + ': ' + lines[0],
+                    ...lines.slice(1, lines.length - 1),
+                    lines[lines.length - 1] + ';'
+                );
+            }
         }
 
         const isOptional = (input?: { [k: string]: { required?: boolean } }) =>
@@ -213,16 +220,21 @@ export class TypescriptModelRenderer implements ModelRenderer {
         return lines;
     }
 
-    /** Formats url parameters / query parameters as TypeScript interface. */
-    protected formatParameters(paramMap: { [key: string]: Parameter } | undefined, resultKey: string): string[] {
+    /** Formats url parameters / query parameters / form parameters as TypeScript interface. */
+    protected formatParameters(paramMap: { [key: string]: Parameter } | undefined, resultKey?: string): string[] {
         if (!paramMap || Object.keys(paramMap).length === 0) {
-            return [resultKey + '?: { };'];
+            return resultKey ? [resultKey + '?: { };'] : ['{ }'];
         } else {
             const lines = [] as string[];
             const optional = !Object.keys(paramMap)
                 .some(param => paramMap[param].required);
 
-            lines.push(resultKey + (optional ? '?' : '') + ': {');
+            if (resultKey) {
+                lines.push(resultKey + (optional ? '?' : '') + ': {');
+            } else {
+                lines.push('{');
+            }
+
             for (let paramName of Object.keys(paramMap)) {
                 const param = paramMap[paramName];
 
@@ -248,10 +260,14 @@ export class TypescriptModelRenderer implements ModelRenderer {
                 const description = param.description;
                 const example = this.options.emitRequestExamples ? exampleText : '';
                 const keyText = formatAsObjectKey(paramName) + (param.required ? '': '?');
-                const typeText = param.repeat ? `${param.type} | ${param.type}[]` : param.type;
+                let typeText = param.repeat ? `${param.type} | ${param.type}[]` : param.type;
                 let jsdoc = this.generateJsDoc({ description, example, defaultValue });
 
-                if (param.type === 'string' && param.example.indexOf('\n') >= 0) {
+                if (param.type as any === 'file') {
+                    typeText = 'File';
+                }
+
+                if (param.type === 'string' && param.example && param.example.indexOf('\n') >= 0) {
                     jsdoc = jsdoc
                         .join('\n')
                         .replace(/ \*\n \* @example\n \* /g, ' * @example\n * ')
@@ -268,7 +284,8 @@ export class TypescriptModelRenderer implements ModelRenderer {
                     keyText + ': ' + typeText + ';'
                 ]));
             }
-            lines.push('};');
+
+            lines.push(resultKey ? '};' : '}');
 
             return lines;
         }
@@ -539,6 +556,13 @@ export class TypescriptModelRenderer implements ModelRenderer {
                     const hashType = await this.renderTypescriptPropertyDefinition(prop.additionalProperties);
                     return '{ [key: string]: ' + hashType + ' }';
                 }
+
+                // POST bodies with multipart/form-data define an inline model - let's accept this for now.
+                if (prop.properties && Object.keys(prop.properties).every(k => 'repeat' in prop.properties[k])) {
+                    const lines = await this.formatParameters(prop.properties as any);
+                    return lines.join('\n');
+                }
+
                 throw new Error('object property without id or additionalProperties: ' + JSON.stringify(prop, null, 2));
 
             default:

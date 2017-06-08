@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { TypescriptModelRenderer, ModelFilter } from './typescript-renderer';
-import { CombinedResponseInfo, Endpoint, ModelMap, ObjectProperty, Parameter, ParsedMeshRAML, PropertyDefinition } from '../interfaces';
+import { CombinedResponseInfo, Endpoint, ModelMap, ObjectProperty, Parameter, ParsedMeshRAML, PropertyDefinition, QueryParameterMap, FormPartMap } from '../interfaces';
 import { unindent } from '../utils/unindent';
 
 describe('TypescriptModelRenderer', () => {
@@ -540,12 +540,92 @@ describe('TypescriptModelRenderer', () => {
             `);
         });
 
+        it('outputs file parameters for file uploads as "File"', async () => {
+            const input: ParsedMeshRAML = {
+                baseUri: '/api/v1',
+                endpoints: [{
+                    description: 'Description of the endpoint.',
+                    method: 'GET',
+                    url: '/some-endpoint',
+                    queryParameters: { },
+                    requestBodySchema: {
+                        type: 'object',
+                        required: true,
+                        properties: {
+                            binary: {
+                                description: 'A file to upload',
+                                type: 'file',
+                                required: true,
+                                repeat: false
+                            },
+                            language: {
+                                description: 'Language of the file',
+                                type: 'string',
+                                required: true,
+                                repeat: false,
+                                example: 'en'
+                            }
+                        }
+                    } as any,
+                    responses: {
+                        200: {
+                            description: 'Description of the response',
+                            responseBodySchema: {
+                                type: 'object',
+                                id: 'urn:jsonschema:com:gentics:mesh:core:rest:node:NodeResponse',
+                                properties: { } // irrelevant for this test
+                            }
+                        }
+                    }
+                }],
+                models: { },
+                version: '0.9.1'
+            };
+
+            renderer.options.endpointInterface = 'ApiEndpoints';
+            const result = await renderer.generateEndpointList(input);
+
+            expect(result).to.equal(unindent `
+                /** List of all API endpoints and their types */
+                export interface ApiEndpoints {
+                    GET: {
+                        /** Description of the endpoint. */
+                        '/some-endpoint': {
+                            request: {
+                                urlParams?: { };
+                                queryParams?: { };
+                                body: {
+                                    /** A file to upload */
+                                    binary: File;
+                                    /**
+                                     * Language of the file
+                                     * @example "en"
+                                     */
+                                    language: string;
+                                };
+                            };
+                            responseType: NodeResponse;
+                            responseTypes: {
+                                /** Description of the response */
+                                200: NodeResponse;
+                            };
+                        };
+                    };
+                    POST: { };
+                    PATCH: { };
+                    PUT: { };
+                    DELETE: { };
+                }
+
+            `);
+        });
+
     });
 
     describe('formatParameters()', () => {
 
         it('renders newline-separated examples for string fields as multiple @example tags', () => {
-            let paramMap: { [key: string]: Parameter } = {
+            const paramMap: QueryParameterMap = {
                 field: {
                     description: 'Description for the field',
                     example: 'first example line\nsecond example line',

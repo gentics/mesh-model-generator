@@ -425,7 +425,7 @@ describe('MeshRamlParser', () => {
         });
 
         it('adds the request body example from the RAML', async () => {
-            exampleRequestRaml.body['application/json'].example = '{"firstname":"John Doe"}';
+            (exampleRequestRaml.body as any)['application/json'].example = '{"firstname":"John Doe"}';
             const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
             expect(result.requestBodyExample).to.deep.equal({ firstname: 'John Doe' });
         });
@@ -435,6 +435,49 @@ describe('MeshRamlParser', () => {
             const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, models);
             expect(models).to.have.property('urn:jsonschema:com:gentics:mesh:core:rest:user:UserCreateRequest');
             expect(models).to.have.property('urn:jsonschema:com:gentics:mesh:core:rest:user:UserResponse');
+        });
+
+        it('processes formParameters for multipart/form-data requests', async () => {
+            exampleRequestRaml.body = {
+                'multipart/form-data': {
+                    formParameters: {
+                        binary: {
+                            description: 'A file to upload',
+                            type: 'file',
+                            required: true,
+                            repeat: false
+                        },
+                        language: {
+                            description: 'Language of the file',
+                            type: 'string',
+                            required: true,
+                            repeat: false,
+                            example: 'en'
+                        }
+                    }
+                }
+            };
+            const models = {};
+            const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, models);
+            expect(result.requestBodySchema).to.deep.equal({
+                type: 'object',
+                required: true,
+                properties: {
+                    binary: {
+                        description: 'A file to upload',
+                        type: 'file',
+                        required: true,
+                        repeat: false
+                    },
+                    language: {
+                        description: 'Language of the file',
+                        type: 'string',
+                        required: true,
+                        repeat: false,
+                        example: 'en'
+                    }
+                }
+            });
         });
 
     });
