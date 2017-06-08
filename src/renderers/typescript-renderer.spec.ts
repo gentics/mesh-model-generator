@@ -549,6 +549,20 @@ describe('TypescriptModelRenderer', () => {
             ]);
         });
 
+        it('escapes asterisks as underscores to prevent breaking the output', () => {
+            // Fixes errors for models added in 0.9.10 (#10)
+            const jsdoc = renderer.generateJsDoc({
+                description: 'A description\nwith *important* markdown text\nand an URL: */api/v1/endpoint*'
+            });
+            expect(jsdoc).to.deep.equal([
+                '/**',
+                ' * A description',
+                ' * with _important_ markdown text',
+                ' * and an URL: _/api/v1/endpoint_',
+                ' */'
+            ]);
+        });
+
         it('adds default parameters at the end of the first sentence or line', () => {
             const jsdoc1 = renderer.generateJsDoc({
                 description: 'Some model. This is mainly used for xyz. Must always be provided.',

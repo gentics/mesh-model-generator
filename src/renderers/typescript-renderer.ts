@@ -406,6 +406,11 @@ export class TypescriptModelRenderer implements ModelRenderer {
             description = description.replace(/(\. ?)|(\n)|$/, ` (default: ${defaultText})$1$2`);
         }
 
+        if (description) {
+            // Replace * with _ in comments to prevent ending comments and breaking the output (#10)
+            description = description.replace(/([^ ])\*|\*([^ ])/g, '$1_$2').replace(/\*+\//g, '/');
+        }
+
         const maxLineLength = this.options.maxLineLength - 4 * this.options.indentation.length - 3;
         const descriptionLines = description ? wordWrap(description, maxLineLength) : [];
 
