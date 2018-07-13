@@ -73,7 +73,7 @@ export class MeshRamlParser {
 
     /** For parent-child endpoints (e.g. "/{project}", "/{project}/nodes"), add the uri parameters of the parent. */
     protected addMissingUriParameters(endpoints: Endpoint[]): void {
-        const endpointsByUrl: { [url: string]: Endpoint } = { };
+        const endpointsByUrl: { [url: string]: Endpoint } = {};
         for (let endpoint of endpoints) {
             // only add URLs with "{parameter}"
             if (/\{[^\}]+\}/.test(endpoint.url)) {
@@ -112,7 +112,7 @@ export class MeshRamlParser {
             urlParameters: urlParams,
             queryParameters: requestSchema.queryParameters,
             description: requestSchema.description,
-            responses: { }
+            responses: {}
         };
 
         const body = requestSchema.body;
@@ -120,20 +120,22 @@ export class MeshRamlParser {
         const formBody: FormPartMap = body && ((body as any)['multipart/form-data'] || {} as any).formParameters;
 
         if (jsonBody) {
+            parsedRequest.requestBody = { mimeType: 'application/json' };
             if (jsonBody.example) {
-                parsedRequest.requestBodyExample = JSON.parse(jsonBody.example);
+                parsedRequest.requestBody.example = JSON.parse(jsonBody.example);
             }
             if (jsonBody.schema) {
                 const schema: PropertyDefinition = JSON.parse(jsonBody.schema);
-                parsedRequest.requestBodySchema = await this.normalizeSchema(schema, models);
+                parsedRequest.requestBody.schema = await this.normalizeSchema(schema, models);
             }
         } else if (formBody) {
+            parsedRequest.requestBody = { mimeType: 'multipart/form-data' };
             let formSchema: Partial<ObjectProperty> = {
                 type: 'object',
                 required: Object.keys(formBody).some(k => formBody[k].required),
                 properties: formBody as any
             };
-            parsedRequest.requestBodySchema = formSchema as ObjectProperty;
+            parsedRequest.requestBody.schema = formSchema as ObjectProperty;
         }
 
         parsedRequest.responses = await this.traverseResponseSchemas(requestSchema.responses, models);
@@ -147,7 +149,7 @@ export class MeshRamlParser {
             description,
             type: 'object',
             required: true,
-            properties: { }
+            properties: {}
         } as ObjectProperty;
         return returnValue;
     }
@@ -155,7 +157,7 @@ export class MeshRamlParser {
     async traverseResponseSchemas(responseMap: ResponseMapYaml, models: ModelMap): Promise<ResponseMap> {
         const responseTypes: ResponseMap = {};
 
-        for (let responseCode of Object.keys(responseMap  || {})) {
+        for (let responseCode of Object.keys(responseMap || {})) {
             const responseYaml = responseMap[Number(responseCode)];
 
             let result: Response = {

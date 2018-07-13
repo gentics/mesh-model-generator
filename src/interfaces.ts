@@ -12,14 +12,19 @@ export interface CombinedResponseInfo {
     response: Response;
 }
 
+export interface RequestBody {
+    mimeType: string;
+    schema?: PropertyDefinition;
+    example?: string;
+}
+
 export interface Endpoint {
     method: RequestMethod;
     url: string;
     description: string;
+    requestBody?: RequestBody;
     urlParameters?: UrlParameterMap;
     queryParameters?: QueryParameterMap;
-    requestBodyExample?: string;
-    requestBodySchema?: PropertyDefinition;
     responses: ResponseMap;
 }
 

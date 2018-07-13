@@ -148,13 +148,18 @@ export class TypescriptModelRenderer implements ModelRenderer {
             ...this.formatParameters(endpoint.queryParameters, 'queryParams')
         ];
 
+        const requestBody = endpoint.requestBody;
+
         // Format request body interface
-        if (!endpoint.requestBodySchema) {
+        if (!requestBody) {
             requestLines.push('body?: undefined;');
+        }
+        else if (!requestBody.schema) {
+            requestLines.push('body: any;');
         } else {
-            const optional = endpoint.requestBodySchema.required === false;
+            const optional = requestBody.schema.required === false;
             const optionalText = optional ? '?' : '';
-            const valueText = await this.renderTypescriptPropertyDefinition(endpoint.requestBodySchema);
+            const valueText = await this.renderTypescriptPropertyDefinition(requestBody.schema);
 
             if (valueText.indexOf('\n') < 0) {
                 requestLines.push('body' + optionalText + ': ' + valueText + ';');

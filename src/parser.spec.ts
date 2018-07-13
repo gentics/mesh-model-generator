@@ -38,7 +38,7 @@ describe('MeshRamlParser', () => {
             parser.findModelsAndEndpoints = async (apiRaml) => {
                 expect(apiRaml).to.deep.equal({ 'parsed yaml': true });
                 called = true;
-                return { };
+                return { } as any;
             };
 
             const result = await parser.parseRAML({ 'parsed yaml': true })
@@ -111,7 +111,7 @@ describe('MeshRamlParser', () => {
                     description: 'example for unit test',
                     type: 'number'
                 };
-                return { };
+                return { } as any;
             };
 
             const result = await parser.findModelsAndEndpoints(exampleRaml);
@@ -274,6 +274,36 @@ describe('MeshRamlParser', () => {
             });
         });
 
+        it('parses the request body MIME type', async () => {
+            const exampleRaml = {
+                '/search': {
+                    '/nodes': {
+                        post: {
+                            description: 'Invoke a search query for nodes and return the unmodified Elasticsearch response. Note that the query will be executed using the multi search API of Elasticsearch.',
+                            body: {
+                                "application/json": {
+                                    example: '{"query":{"query_string":{"query":"some name"}}}'
+                                }
+                            },
+                            responses: {
+                                200: {
+                                    body: {
+                                        'text/plain': {
+                                            example: "{}"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const result = await parser.findModelsAndEndpoints(exampleRaml);
+            expect(result.endpoints).to.have.lengthOf(1);
+
+            expect(result.endpoints[0].requestBody!.mimeType).to.equal('application/json');
+        })
     });
 
     describe('traverseRequest', () => {
@@ -412,7 +442,7 @@ describe('MeshRamlParser', () => {
 
         it('adds the request schema from the RAML', async () => {
             const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
-            expect(result.requestBodySchema).to.deep.equal({
+            expect(result.requestBody!.schema).to.deep.equal({
                 type: 'object',
                 id: 'urn:jsonschema:com:gentics:mesh:core:rest:user:UserCreateRequest',
                 properties: {
@@ -427,7 +457,7 @@ describe('MeshRamlParser', () => {
         it('adds the request body example from the RAML', async () => {
             (exampleRequestRaml.body as any)['application/json'].example = '{"firstname":"John Doe"}';
             const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, {});
-            expect(result.requestBodyExample).to.deep.equal({ firstname: 'John Doe' });
+            expect(result.requestBody!.example).to.deep.equal({ firstname: 'John Doe' });
         });
 
         it('adds the parsed models to the model hash via normalizeSchema', async () => {
@@ -459,7 +489,7 @@ describe('MeshRamlParser', () => {
             };
             const models = {};
             const result = await parser.traverseRequest(exampleRequestRaml, 'post', '/users', undefined, models);
-            expect(result.requestBodySchema).to.deep.equal({
+            expect(result.requestBody!.schema).to.deep.equal({
                 type: 'object',
                 required: true,
                 properties: {

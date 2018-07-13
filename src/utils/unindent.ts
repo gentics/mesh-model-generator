@@ -1,3 +1,5 @@
+import { Endpoint } from "../interfaces";
+
 /**
  * Helper function to unindent tagged strings in TypeScript code.
  *
