@@ -16,7 +16,11 @@
         "sourceMap": true,
         "strictNullChecks": true,
         "stripInternal": true,
-        "target": "es2015"
+        "target": "es2015",
+        "types": [
+            "node",
+            "mocha"
+        ]
     },
     "exclude": [
         "dist",
