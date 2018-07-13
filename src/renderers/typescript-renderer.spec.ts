@@ -409,18 +409,21 @@ describe('TypescriptModelRenderer', () => {
                         description: 'Create a new group.',
                         method: 'POST',
                         url: '/groups',
-                        requestBodySchema: {
-                            type: 'object',
-                            id: 'urn:jsonschema:com:gentics:mesh:core:rest:group:GroupCreateRequest',
-                            properties: {
-                                name: {
-                                    type: 'string',
-                                    required: true,
-                                    description: 'Name of the group.'
+                        requestBody: {
+                            mimeType: 'application/json',
+                            schema: {
+                                type: 'object',
+                                id: 'urn:jsonschema:com:gentics:mesh:core:rest:group:GroupCreateRequest',
+                                properties: {
+                                    name: {
+                                        type: 'string',
+                                        required: true,
+                                        description: 'Name of the group.'
+                                    }
                                 }
-                            }
+                            },
+                            example: '{\n"name": "New group"\n}',
                         },
-                        requestBodyExample: '{\n"name": "New group"\n}',
                         responses: {
                             201: {
                                 description: 'Created group.',
@@ -548,25 +551,28 @@ describe('TypescriptModelRenderer', () => {
                     method: 'GET',
                     url: '/some-endpoint',
                     queryParameters: { },
-                    requestBodySchema: {
-                        type: 'object',
-                        required: true,
-                        properties: {
-                            binary: {
-                                description: 'A file to upload',
-                                type: 'file',
-                                required: true,
-                                repeat: false
-                            },
-                            language: {
-                                description: 'Language of the file',
-                                type: 'string',
-                                required: true,
-                                repeat: false,
-                                example: 'en'
+                    requestBody: {
+                        mimeType: 'application/json',
+                        schema: {
+                            type: 'object',
+                            required: true,
+                            properties: {
+                                binary: {
+                                    description: 'A file to upload',
+                                    type: 'file',
+                                    required: true,
+                                    repeat: false
+                                },
+                                language: {
+                                    description: 'Language of the file',
+                                    type: 'string',
+                                    required: true,
+                                    repeat: false,
+                                    example: 'en'
+                                }
                             }
-                        }
-                    } as any,
+                        } as any,
+                    },
                     responses: {
                         200: {
                             description: 'Description of the response',
@@ -619,6 +625,62 @@ describe('TypescriptModelRenderer', () => {
 
             `);
         });
+
+        it('outputs request body "any" on application/json body without a schema', async () => {
+            const input: ParsedMeshRAML = {
+                baseUri: '/api/v1',
+                endpoints: [{
+                    description: 'Description of the endpoint.',
+                    method: 'POST',
+                    url: '/some-endpoint',
+                    queryParameters: { },
+                    requestBody: {
+                        mimeType: 'application/json',
+                    },
+                    responses: {
+                        200: {
+                            description: 'Description of the response',
+                            responseBodySchema: {
+                                type: 'object',
+                                id: 'urn:jsonschema:com:gentics:mesh:core:rest:node:NodeResponse',
+                                properties: { } // irrelevant for this test
+                            }
+                        }
+                    }
+                }],
+                models: { },
+                version: '0.9.1'
+            };
+
+            renderer.options.endpointInterface = 'ApiEndpoints';
+            const result = await renderer.generateEndpointList(input);
+
+            expect(result).to.equal(unindent `
+                /** List of all API endpoints and their types */
+                export interface ApiEndpoints {
+                    GET: { };
+                    POST: {
+                        /** Description of the endpoint. */
+                        '/some-endpoint': {
+                            request: {
+                                urlParams?: { };
+                                queryParams?: { };
+                                body: any;
+                            };
+                            responseType: NodeResponse;
+                            responseTypes: {
+                                /** Description of the response */
+                                200: NodeResponse;
+                            };
+                        };
+                    };
+                    PATCH: { };
+                    PUT: { };
+                    DELETE: { };
+                }
+
+            `);
+        })
 
     });
 
