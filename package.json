@@ -30,8 +30,8 @@
     "build": "gulp build",
     "build-tsc": "tsc -p tsconfig.es5.json && tsc -p tsconfig.es6.json",
     "prepublish": "gulp default",
-    "test": "mocha --require ts-node/register --require source-map-support/register src/**.spec.ts src/**/*.spec.ts",
-    "watch-tests": "mocha --watch --reporter min --require ts-node/register --require source-map-support/register src/**.spec.ts src/**/*.spec.ts",
+    "test": "mocha --require ts-node/register --require source-map-support/register 'src/**/*.spec.ts'",
+    "watch-tests": "mocha --watch --reporter min --require ts-node/register --require source-map-support/register 'src/**/*.spec.ts'",
     "watch": "gulp watch"
   },
   "devDependencies": {
