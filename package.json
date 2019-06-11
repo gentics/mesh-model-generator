@@ -1,6 +1,6 @@
 {
   "name": "mesh-model-generator",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Generate model interfaces from Gentics Mesh RAML declarations",
   "author": "Leon Adler <l.adler@gentics.com>",
   "license": "MIT",
