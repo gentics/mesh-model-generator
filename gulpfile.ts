@@ -3,7 +3,6 @@ const gulp = require('gulp');
 import * as mocha from 'gulp-mocha';
 import * as sourcemaps from 'gulp-sourcemaps';
 import { createProject as createTypescriptProject } from 'gulp-typescript';
-import { log, colors } from 'gulp-util';
 import * as merge2 from 'merge2';
 import { install as installSourceMapSupport } from 'source-map-support';
 installSourceMapSupport();
@@ -66,9 +65,9 @@ function test() {
         }))
         .on('error', function (error: Error) {
             if (error.name === 'TSError') {
-                log(colors.red(error.message));
+                console.error(error.message);
             } else if (!/^\s*\d+ tests? failed./.test(error.message)) {
-                log(colors.red(error.toString()));
+                console.error(error.toString());
             }
             process.exitCode = 1;
             this.emit('end');
