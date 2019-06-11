@@ -61,7 +61,8 @@ function test() {
 
     return gulp.src(['src/**/*.spec.ts'])
         .pipe(mocha({
-            reporter: watching ? 'min' : 'spec'
+            reporter: watching ? 'min' : 'spec',
+            require: ["ts-node/register"]
         }))
         .on('error', function (error: Error) {
             if (error.name === 'TSError') {
